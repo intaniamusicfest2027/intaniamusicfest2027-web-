@@ -5,8 +5,8 @@
 //  Leave them empty to run the site in DEMO mode (fake data).
 // ============================================================
 window.IMF_CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
+  SUPABASE_URL: 'https://igojwzsddqwfusppzrxg.supabase.co/rest/v1/',
+  SUPABASE_ANON_KEY: 'sb_publishable_aYxw0N4vc93t0PxY45U7fA_QxfcDMad',
 
   EVENT_NAME: 'INTANIA MUSIC FEST 2027',
   EVENT_START: '2027-01-28T17:00:00+07:00',
