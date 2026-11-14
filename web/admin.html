@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หลังบ้าน · INTANIA MUSIC FEST 2027</title>
+<link rel="icon" href="assets/logo.jpg">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/vendor/chart.umd.js"></script>
+<script src="assets/app.js"></script>
+<style>
+  .chart-box { position: relative; height: 260px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+  .pie-center b { font-family: var(--display); font-size: 46px; font-weight: 400; line-height: 1; }
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap" id="root"><div class="spinner"></div></div>
+</main>
+
+<script>
+(async () => {
+  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GROUPS } = IMF;
+  IMF.header(); IMF.footer();
+  const root = $('#root');
+
+  const info = await rpc('my_email_info').catch(() => ({}));
+  if (!info.logged_in) {
+    root.innerHTML = `<div class="wrap narrow stack center"><h1>หลังบ้าน</h1><button class="btn big block" id="login">เข้าสู่ระบบด้วย Google</button></div>`;
+    $('#login').onclick = () => api.signIn(); return;
+  }
+  if (!info.is_admin) { root.innerHTML = `<div class="card">บัญชี <span class="mono">${esc(info.email)}</span> ไม่ใช่แอดมิน</div>`; return; }
+
+  root.innerHTML = `
+    <div class="row" style="justify-content:space-between;margin-bottom:16px"><h1>หลังบ้าน</h1><button class="btn ghost small" id="refresh">↻ รีเฟรช</button></div>
+    <div class="tabs" id="tabs">
+      <button data-t="overview" class="on">ภาพรวม</button><button data-t="people">รายชื่อ</button>
+      <button data-t="settings">ตั้งค่า</button><button data-t="rewards">ของรางวัล</button>
+      <button data-t="ann">ประกาศ</button><button data-t="team">ทีมงาน & กรุ๊ป</button>
+    </div>
+    <section id="t-overview"></section><section id="t-people" class="hide"></section><section id="t-settings" class="hide"></section>
+    <section id="t-rewards" class="hide"></section><section id="t-ann" class="hide"></section><section id="t-team" class="hide"></section>`;
+
+  const tabFn = { overview: overview, people: people, settings: settingsTab, rewards: rewardsTab, ann: annTab, team: teamTab };
+  let active = 'overview';
+  $('#tabs').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+    $$('main section').forEach(s => s.classList.add('hide'));
+    active = b.dataset.t; $('#t-' + active).classList.remove('hide'); tabFn[active]();
+  };
+  $('#refresh').onclick = () => tabFn[active]();
+  const fail = (el, e) => { el.innerHTML = `<div class="card">${esc(IMF.errMsg(e))}</div>`; };
+
+  // ---------------- overview ----------------
+  Chart.defaults.color = '#b9b9b9';
+  Chart.defaults.borderColor = '#2a2a2a';
+  Chart.defaults.font.family = "'IBM Plex Sans Thai', system-ui, sans-serif";
+  const CAT_COLORS = { eng: '#3987e5', chula_student: '#d95926', chula_staff: '#199e70', external: '#c98500' };
+  const BAR = '#e6e6e6';
+  let charts = [];
+
+  async function overview() {
+    const el = $('#t-overview');
+    el.innerHTML = '<div class="spinner"></div>';
+    let s;
+    try { s = await rpc('admin_stats'); } catch (e) { return fail(el, e); }
+    charts.forEach(c => c.destroy()); charts = [];
+    const pct = s.target ? Math.min(100, s.total / s.target * 100) : 0;
+
+    el.innerHTML = `
+      <div class="grid-4">
+        <div class="stat"><div class="v">${fmt(s.total)}</div><div class="l">ลงทะเบียนทั้งหมด</div></div>
+        <div class="stat"><div class="v">${fmt(s.checked_in)}</div><div class="l">รับบัตรแล้ว (${s.total ? Math.round(s.checked_in / s.total * 100) : 0}%)</div></div>
+        <div class="stat"><div class="v">${fmt(s.referred)}</div><div class="l">มาจากเพื่อนชวน</div></div>
+        <div class="stat"><div class="v">${fmt(s.points_redeemed)}<small class="dim" style="font-size:20px"> / ${fmt(s.points_out)}</small></div><div class="l">แต้มที่แลกแล้ว / แจกไป</div></div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card"><div class="card-title"><h3>เป้าหมาย ${fmt(s.target)} คน</h3></div>
+          <div class="chart-box"><canvas id="cTarget"></canvas><div class="pie-center"><b>${pct.toFixed(1)}%</b><span class="small muted">${fmt(s.total)} / ${fmt(s.target)}</span></div></div>
+          <div class="legend"><span><i style="background:#fff"></i>ลงทะเบียนแล้ว ${fmt(s.total)}</span><span><i style="background:#383835"></i>ยังขาด ${fmt(Math.max(0, s.target - s.total))}</span></div></div>
+        <div class="card"><div class="card-title"><h3>ประเภทผู้ลงทะเบียน</h3></div>
+          <div class="chart-box"><canvas id="cCat"></canvas></div>
+          <div class="legend">${Object.keys(CATEGORY).map(k => `<span><i style="background:${CAT_COLORS[k]}"></i>${CATEGORY[k]} ${fmt(s.by_category[k] || 0)}</span>`).join('')}</div></div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="card-title"><h3>จำนวนคนแยกกรุ๊ป (นิสิตวิศวะ)</h3></div><div class="chart-box"><canvas id="cGroup"></canvas></div></div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card"><div class="card-title"><h3>แยกชั้นปี</h3></div><div class="chart-box"><canvas id="cYear"></canvas></div></div>
+        <div class="card"><div class="card-title"><h3>ลงทะเบียนรายวัน</h3></div><div class="chart-box"><canvas id="cDay"></canvas></div></div>
+      </div>
+      <div class="card" style="margin-top:16px"><div class="card-title"><h3>ของรางวัลที่แลกไป</h3></div>
+        ${s.by_reward.length ? `<table class="t"><thead><tr><th>ของรางวัล</th><th style="text-align:right">แลกไป</th><th style="text-align:right">คงเหลือ</th></tr></thead><tbody>
+          ${s.by_reward.map(r => `<tr><td>${esc(r.name)}</td><td class="mono" style="text-align:right">${fmt(r.n)}</td><td class="mono" style="text-align:right">${r.stock == null ? '∞' : fmt(r.stock)}</td></tr>`).join('')}</tbody></table>`
+        : '<div class="dim">ยังไม่มีการแลก</div>'}</div>`;
+
+    const bar = (id, labels, data, label) => charts.push(new Chart($(id), {
+      type: 'bar',
+      data: { labels, datasets: [{ label, data, backgroundColor: BAR, hoverBackgroundColor: '#fff', borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: 'bottom', maxBarThickness: 36 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${fmt(c.parsed.y)} คน` } } },
+        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#1f1f1f' } } } }
+    }));
+
+    charts.push(new Chart($('#cTarget'), {
+      type: 'doughnut',
+      data: { labels: ['ลงทะเบียนแล้ว', 'ยังขาด'], datasets: [{ data: [s.total, Math.max(0, s.target - s.total)], backgroundColor: ['#ffffff', '#383835'], borderColor: '#0d0d0d', borderWidth: 2 }] },
+      options: { maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label} ${fmt(c.parsed)} คน` } } } }
+    }));
+    const catKeys = Object.keys(CATEGORY);
+    charts.push(new Chart($('#cCat'), {
+      type: 'pie',
+      data: { labels: catKeys.map(k => CATEGORY[k]), datasets: [{ data: catKeys.map(k => s.by_category[k] || 0), backgroundColor: catKeys.map(k => CAT_COLORS[k]), borderColor: '#0d0d0d', borderWidth: 2 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label} ${fmt(c.parsed)} คน (${s.total ? (c.parsed / s.total * 100).toFixed(1) : 0}%)` } } } }
+    }));
+    bar('#cGroup', s.by_group.map(g => g.code), s.by_group.map(g => g.n), 'คน');
+    const yk = ['1', '2', '3', '4', '5+', 'grad'];
+    bar('#cYear', yk.map(k => YEAR[k]), yk.map(k => s.by_year[k] || 0), 'คน');
+    bar('#cDay', s.by_day.map(d => new Date(d.d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })), s.by_day.map(d => d.n), 'คน');
+  }
+
+  // ---------------- people ----------------
+  let page = 0, query = '';
+  const PAGE = 50;
+  const COLS = [['created_at', 'ลงทะเบียน'], ['first_name', 'ชื่อ'], ['last_name', 'นามสกุล'], ['nickname', 'ชื่อเล่น'], ['category', 'ประเภท'], ['round', 'รอบ'],
+    ['student_id', 'รหัสนิสิต'], ['year', 'ชั้นปี'], ['group_code', 'กรุ๊ป'], ['affiliation', 'คณะ/หน่วยงาน'], ['phone', 'เบอร์'], ['email', 'อีเมล'],
+    ['food_allergy', 'แพ้อาหาร'], ['ref_code', 'รหัสของตัวเอง'], ['referrer_code', 'รหัสเพื่อนที่ใช้'], ['friends', 'ชวนได้'], ['points', 'แต้ม'], ['checked_in_at', 'รับบัตร']];
+
+  async function people() {
+    const el = $('#t-people');
+    if (!el.dataset.ready) {
+      el.dataset.ready = 1;
+      el.innerHTML = `<div class="row" style="margin-bottom:14px">
+          <form id="search" class="row" style="flex:1"><input class="input" name="q" placeholder="ค้นหา ชื่อ / อีเมล / เบอร์ / รหัส" style="flex:1"><button class="btn small">ค้นหา</button></form>
+          <button class="btn ghost small" id="csv">⬇ Export CSV</button></div>
+        <div class="card tscroll" id="ptable"></div>
+        <div class="row" style="justify-content:space-between;margin-top:12px"><button class="btn ghost small" id="prev">← ก่อนหน้า</button><span class="small dim" id="pinfo"></span><button class="btn ghost small" id="next">ถัดไป →</button></div>`;
+      $('#search').onsubmit = e => { e.preventDefault(); query = e.target.q.value.trim(); page = 0; people(); };
+      $('#prev').onclick = () => { if (page > 0) { page--; people(); } };
+      $('#next').onclick = () => { page++; people(); };
+      $('#csv').onclick = exportCsv;
+    }
+    $('#ptable').innerHTML = '<div class="spinner"></div>';
+    try {
+      const rows = await rpc('admin_list', { q: query, lim: PAGE, off: page * PAGE });
+      const total = rows[0] ? Number(rows[0].total_count) : 0;
+      $('#pinfo').textContent = total ? `${page * PAGE + 1}–${page * PAGE + rows.length} จาก ${fmt(total)}` : 'ไม่พบข้อมูล';
+      $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * PAGE >= total;
+      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เวลา</th><th>ชื่อ</th><th>ประเภท</th><th>กรุ๊ป/ปี</th><th>เบอร์</th><th>รหัส</th><th>ชวน</th><th>แต้ม</th><th>บัตร</th><th></th></tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td class="small dim">${IMF.dateTH(r.created_at)}</td>
+          <td><b>${esc(r.first_name)} ${esc(r.last_name)}</b>${r.nickname ? ` (${esc(r.nickname)})` : ''}<div class="small dim">${esc(r.email)}</div>${r.food_allergy ? `<div class="small" style="color:var(--warn)">แพ้: ${esc(r.food_allergy)}</div>` : ''}</td>
+          <td class="small">${esc(CATEGORY[r.category])}</td>
+          <td class="small">${esc(r.group_code || '')} ${r.year ? esc(YEAR[r.year]) : ''}<div class="dim">${esc(r.category === 'eng' ? (r.student_id || '') : (r.affiliation || ''))}</div></td>
+          <td class="mono small">${esc(r.phone)}</td>
+          <td class="mono small">${esc(r.ref_code)}${r.referrer_code ? `<div class="dim">← ${esc(r.referrer_code)}</div>` : ''}</td>
+          <td class="mono">${fmt(r.friends)}</td><td class="mono"><b>${fmt(r.points)}</b></td>
+          <td>${r.checked_in_at ? '✅' : ''}</td>
+          <td><button class="btn ghost small" data-adj="${r.id}" data-name="${esc(r.first_name)}">± แต้ม</button></td></tr>`).join('')}</tbody></table>`;
+      $('#ptable').onclick = async e => {
+        const b = e.target.closest('[data-adj]'); if (!b) return;
+        const v = prompt(`ปรับแต้มของ ${b.dataset.name} (ใส่ตัวเลข เช่น 5 หรือ -2)`); if (!v || isNaN(+v)) return;
+        const note = prompt('เหตุผล (เก็บไว้ในประวัติ)') || '';
+        try { const n = await rpc('admin_adjust_points', { uid: b.dataset.adj, delta: parseInt(v, 10), note }); IMF.toast('แต้มใหม่: ' + n); people(); }
+        catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+      };
+    } catch (e) { fail($('#ptable'), e); }
+  }
+
+  async function exportCsv() {
+    IMF.toast('กำลังเตรียมไฟล์…');
+    try {
+      const rows = await rpc('admin_list', { q: '', lim: 20000, off: 0 });
+      const cell = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      const lines = [COLS.map(c => c[1]).join(',')].concat(rows.map(r => COLS.map(([k]) => {
+        let v = r[k];
+        if (k === 'category') v = CATEGORY[v];
+        if (k === 'year' && v) v = YEAR[v];
+        if ((k === 'created_at' || k === 'checked_in_at') && v) v = new Date(v).toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' });
+        if (k === 'phone' || k === 'student_id') v = v ? '="' + v + '"' : '';   // keep leading zeros in Excel
+        return cell(v);
+      }).join(',')));
+      const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'imf2027-registrations-' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+    } catch (e) { IMF.toast(IMF.errMsg(e), true); }
+  }
+
+  // ---------------- settings ----------------
+  const SETTINGS = [
+    ['eng_round_open', 'bool', 'เปิดรอบนิสิตวิศวะ', 'ลงทะเบียนได้เฉพาะอีเมลนิสิตวิศวะ (รหัสลงท้าย 21)'],
+    ['general_round_open', 'bool', 'เปิดรอบทั่วไป', 'เปิดแล้วทุกประเภทลงทะเบียนได้ (มีผลเหนือรอบวิศวะ)'],
+    ['allow_external', 'bool', 'รับบุคคลภายนอกจุฬาฯ', 'ใช้ในรอบทั่วไป ถ้าปิด = เฉพาะอีเมลจุฬาฯ'],
+    ['referral_open', 'bool', 'เปิดสะสมแต้มเพื่อนชวนเพื่อน', 'ปิดเมื่อจบแคมเปญ (รหัสเพื่อนยังกรอกได้ แต่ไม่ได้แต้ม)'],
+    ['points_per_referral', 'num', 'แต้มต่อเพื่อน 1 คน', 'คนชวนได้กี่แต้ม'],
+    ['points_signup_bonus', 'num', 'โบนัสคนที่ใช้รหัสเพื่อน', '0 = ไม่มีโบนัส'],
+    ['ticket_open', 'bool', 'แสดง QR รับบัตร', 'เปิดกลางเดือน ม.ค. ให้ผู้ลงทะเบียนเห็น QR ในหน้าบัตรของฉัน'],
+    ['redeem_open', 'bool', 'เปิดระบบแลกแต้ม', 'เปิดในวันงาน ให้ทีมงานสแกนแลกของได้'],
+    ['target', 'num', 'เป้าหมายจำนวนคน', 'ใช้ในกราฟวงกลมหน้าภาพรวม']
+  ];
+  async function settingsTab() {
+    const el = $('#t-settings');
+    let s; try { s = await api.settings(); } catch (e) { return fail(el, e); }
+    el.innerHTML = `<div class="card">${SETTINGS.map(([k, t, label, help]) => `<div class="setting"><div><b>${label}</b><small>${help}</small></div>
+      ${t === 'bool' ? `<label class="switch"><input type="checkbox" data-k="${k}" ${s[k] ? 'checked' : ''}><i></i></label>`
+        : `<input class="input" type="number" min="0" data-k="${k}" value="${esc(s[k])}" style="width:120px">`}</div>`).join('')}</div>`;
+    el.onchange = async e => {
+      const i = e.target.closest('[data-k]'); if (!i) return;
+      const v = i.type === 'checkbox' ? i.checked : Math.max(0, parseInt(i.value || '0', 10));
+      try { await api.setSetting(i.dataset.k, v); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  // ---------------- rewards ----------------
+  async function rewardsTab() {
+    const el = $('#t-rewards');
+    let list; try { list = await api.rewards(true); } catch (e) { return fail(el, e); }
+    el.innerHTML = `<div class="card tscroll"><table class="t"><thead><tr><th>ชื่อ</th><th>ใช้แต้ม</th><th>คงเหลือ (ว่าง = ไม่จำกัด)</th><th>ลำดับ</th><th>เปิด</th><th></th></tr></thead><tbody>
+      ${list.concat([{ id: null, name: '', cost: 1, stock: null, sort: 0, active: true }]).map(r => `<tr data-id="${r.id || ''}">
+        <td><input class="input" name="name" value="${esc(r.name)}" placeholder="${r.id ? '' : '+ ของรางวัลใหม่'}"></td>
+        <td><input class="input" name="cost" type="number" min="1" value="${r.cost}" style="width:90px"></td>
+        <td><input class="input" name="stock" type="number" min="0" value="${r.stock == null ? '' : r.stock}" style="width:110px"></td>
+        <td><input class="input" name="sort" type="number" value="${r.sort}" style="width:80px"></td>
+        <td><label class="switch"><input type="checkbox" name="active" ${r.active ? 'checked' : ''}><i></i></label></td>
+        <td><button class="btn small">${r.id ? 'บันทึก' : 'เพิ่ม'}</button></td></tr>`).join('')}</tbody></table></div>
+      <div class="hint">ลบของรางวัลไม่ได้ (เพราะมีประวัติการแลก) ให้ปิดสวิตช์ "เปิด" แทน</div>`;
+    el.onclick = async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const tr = b.closest('tr'), g = n => tr.querySelector(`[name="${n}"]`);
+      const r = { name: g('name').value.trim(), cost: parseInt(g('cost').value, 10), stock: g('stock').value === '' ? null : parseInt(g('stock').value, 10), sort: parseInt(g('sort').value || '0', 10), active: g('active').checked };
+      if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและแต้มให้ครบ', true);
+      if (tr.dataset.id) r.id = Number(tr.dataset.id);
+      try { await api.saveReward(r); IMF.toast('บันทึกแล้ว'); rewardsTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  // ---------------- announcements ----------------
+  async function annTab() {
+    const el = $('#t-ann');
+    let list; try { list = await api.allAnnouncements(); } catch (e) { return fail(el, e); }
+    el.innerHTML = `<form class="card stack" id="annf">
+        <h3>เพิ่มประกาศ</h3>
+        <input class="input" name="title" placeholder="หัวข้อ" required>
+        <textarea class="input" name="body" rows="4" placeholder="รายละเอียด"></textarea>
+        <label class="check"><input type="checkbox" name="pinned"> ปักหมุดไว้บนสุด</label>
+        <button class="btn">เผยแพร่</button></form>
+      <div class="stack" style="margin-top:16px">${list.map(a => `<div class="card" data-id="${a.id}">
+        <div class="row" style="justify-content:space-between"><div><b>${a.pinned ? '📌 ' : ''}${esc(a.title)}</b>
+          <div class="small dim">${IMF.dateTH(a.created_at)} · ${a.published ? 'เผยแพร่อยู่' : 'ซ่อนอยู่'}</div></div>
+          <div class="row"><button class="btn ghost small" data-act="pin">${a.pinned ? 'เลิกปัก' : 'ปักหมุด'}</button>
+          <button class="btn ghost small" data-act="pub">${a.published ? 'ซ่อน' : 'เผยแพร่'}</button>
+          <button class="btn danger small" data-act="del">ลบ</button></div></div>
+        ${a.body ? `<p class="muted" style="white-space:pre-line;margin:10px 0 0">${esc(a.body)}</p>` : ''}</div>`).join('')}</div>`;
+    $('#annf').onsubmit = async e => {
+      e.preventDefault(); const f = e.target;
+      try { await api.saveAnnouncement({ title: f.title.value.trim(), body: f.body.value.trim(), pinned: f.pinned.checked, published: true }); IMF.toast('เผยแพร่แล้ว'); annTab(); }
+      catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onclick = async e => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      const id = Number(b.closest('[data-id]').dataset.id), a = list.find(x => x.id === id);
+      try {
+        if (b.dataset.act === 'del') { if (!confirm('ลบประกาศนี้?')) return; await api.deleteAnnouncement(id); }
+        if (b.dataset.act === 'pin') await api.saveAnnouncement({ id, pinned: !a.pinned });
+        if (b.dataset.act === 'pub') await api.saveAnnouncement({ id, published: !a.published });
+        annTab();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  // ---------------- team & groups ----------------
+  async function teamTab() {
+    const el = $('#t-team');
+    let staff, groups; try { [staff, groups] = await Promise.all([api.staffList(), api.groups()]); } catch (e) { return fail(el, e); }
+    el.innerHTML = `<div class="grid-2" style="align-items:start">
+      <div class="card stack"><h3>ทีมงาน</h3>
+        <div class="hint">ทีมงาน (staff) ใช้หน้าสแกนได้ · แอดมินเข้าหลังบ้านได้ · คนที่จะเพิ่มต้องเข้าสู่ระบบเว็บนี้ด้วย Google อย่างน้อย 1 ครั้งก่อน</div>
+        <form id="addst" class="row"><input class="input" name="em" type="email" placeholder="อีเมล" style="flex:1" required>
+          <select class="input" name="r" style="width:auto"><option value="staff">ทีมงาน</option><option value="admin">แอดมิน</option></select><button class="btn small">เพิ่ม</button></form>
+        <ul class="list">${staff.map(s => `<li><div style="flex:1"><span class="mono small">${esc(s.email)}</span></div><span class="chip ${s.role === 'admin' ? 'on' : ''}">${s.role === 'admin' ? 'แอดมิน' : 'ทีมงาน'}</span>
+          <button class="btn danger small" data-rm="${s.user_id}">ลบ</button></li>`).join('') || '<li class="dim">ยังไม่มี</li>'}</ul></div>
+      <div class="card stack"><h3>จำนวนสมาชิกแต่ละกรุ๊ป</h3>
+        <div class="hint">ใส่จำนวนนิสิตในกรุ๊ป เพื่อให้หน้าอันดับคิด % ได้ (ไม่บังคับ)</div>
+        <div class="grid-3">${groups.map(g => `<label class="f"><span>กรุ๊ป ${esc(g.code)}</span><input class="input" type="number" min="0" data-g="${esc(g.code)}" value="${g.member_count ?? ''}"></label>`).join('')}</div></div></div>`;
+    $('#addst').onsubmit = async e => {
+      e.preventDefault(); const f = e.target;
+      try { await rpc('admin_add_staff', { em: f.em.value.trim(), r: f.r.value }); IMF.toast('เพิ่มแล้ว'); teamTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onclick = async e => {
+      const b = e.target.closest('[data-rm]'); if (!b || !confirm('ลบสิทธิ์ทีมงานนี้?')) return;
+      try { await rpc('admin_remove_staff', { uid: b.dataset.rm }); teamTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onchange = async e => {
+      const i = e.target.closest('[data-g]'); if (!i) return;
+      try { await api.setGroupSize(i.dataset.g, i.value === '' ? null : parseInt(i.value, 10)); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  overview();
+})();
+</script>
+</body>
+</html>

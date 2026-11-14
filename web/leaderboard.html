@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>อันดับกรุ๊ป · INTANIA MUSIC FEST 2027</title>
+<link rel="icon" href="assets/logo.jpg">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main>
+  <div class="wrap">
+    <div class="stack">
+      <div class="kicker">LIVE · อัปเดตทุก 30 วินาที</div>
+      <h1>อันดับกรุ๊ป</h1>
+      <div class="row">
+        <span class="muted">เรียงตาม</span>
+        <div class="seg" id="sort" style="flex:0 1 auto">
+          <button type="button" data-v="registered" class="on">จำนวนคน</button>
+          <button type="button" data-v="pct">% ของกรุ๊ป</button>
+          <button type="button" data-v="points">แต้มรวม</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:24px;align-items:start">
+      <div class="card"><ul class="list" id="groups"><li><div class="spinner"></div></li></ul></div>
+      <div class="card" id="referrers">
+        <div class="card-title"><h2>แต้มสูงสุด</h2><span class="small dim">เพื่อนชวนเพื่อน</span></div>
+        <div class="tscroll"><table class="t" id="top"><tbody><tr><td class="dim">กำลังโหลด…</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(async () => {
+  const { rpc, $, $$, esc, fmt, YEAR } = IMF;
+  IMF.header(); IMF.footer();
+  let data = [], sortBy = 'registered';
+
+  function render() {
+    const hasPct = data.some(r => r.pct != null);
+    $('#sort [data-v="pct"]').disabled = !hasPct;
+    const rows = data.slice().sort((a, b) => (Number(b[sortBy]) || 0) - (Number(a[sortBy]) || 0) || a.group_code.localeCompare(b.group_code));
+    const max = Math.max(1, ...rows.map(r => Number(r[sortBy]) || 0));
+    $('#groups').innerHTML = rows.map((r, i) => {
+      const v = Number(r[sortBy]) || 0;
+      const main = sortBy === 'pct' ? v + '%' : fmt(v) + (sortBy === 'points' ? ' แต้ม' : ' คน');
+      const sub = sortBy === 'registered' ? (r.pct != null ? r.pct + '% ของกรุ๊ป' : fmt(r.points) + ' แต้ม') : fmt(r.registered) + ' คน';
+      return `<li><div class="rank ${i < 3 ? 'top' : ''}">${i + 1}</div>
+        <div class="gbar"><i style="width:${Math.max(3, v / max * 100)}%"></i><span>${esc(r.group_code)}</span></div>
+        <div class="gval">${main}<small>${sub}</small></div></li>`;
+    }).join('');
+  }
+
+  async function load() {
+    try {
+      const [g, top] = await Promise.all([rpc('group_leaderboard'), rpc('top_referrers', { n: 20 })]);
+      data = g; render();
+      $('#top').innerHTML = top.length
+        ? `<thead><tr><th>#</th><th>ชื่อ</th><th>กรุ๊ป</th><th style="text-align:right">เพื่อน</th><th style="text-align:right">แต้ม</th></tr></thead><tbody>` +
+          top.map((r, i) => `<tr><td class="mono">${i + 1}</td><td>${esc(r.display_name)}<div class="small dim">${r.year ? esc(YEAR[r.year] || '') : ''}</div></td>
+            <td>${esc(r.group_code || '–')}</td><td class="mono" style="text-align:right">${fmt(r.friends)}</td><td class="mono" style="text-align:right"><b>${fmt(r.points)}</b></td></tr>`).join('') + '</tbody>'
+        : '<tbody><tr><td class="dim">ยังไม่มีใครได้แต้ม เริ่มชวนเพื่อนเลย!</td></tr></tbody>';
+    } catch (e) { $('#groups').innerHTML = `<li class="dim">${esc(IMF.errMsg(e))}</li>`; }
+  }
+
+  $('#sort').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    $$('#sort button').forEach(x => x.classList.toggle('on', x === b));
+    sortBy = b.dataset.v; render();
+  });
+
+  load(); setInterval(load, 30000);
+})();
+</script>
+</body>
+</html>
