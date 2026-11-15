@@ -9,7 +9,8 @@
     start: CFG.EVENT_START || '2027-01-28T17:00:00+07:00',
     place: 'ลานอินทาเนีย คณะวิศวกรรมศาสตร์ จุฬาลงกรณ์มหาวิทยาลัย',
     ig: CFG.CONTACT_IG || 'intaniamusicfest',
-    hashtag: '#IntaniaMusicFest2027isBack'
+    tiktok: CFG.CONTACT_TIKTOK || 'intania.musicfest',
+    hashtag: '#IntaniaMusicFest2027'
   };
   const DEMO = !CFG.SUPABASE_URL || !CFG.SUPABASE_ANON_KEY;
   const sb = DEMO ? null : window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
@@ -47,7 +48,10 @@
     USER_NOT_FOUND: 'ไม่พบบัญชีนี้ ให้เจ้าของอีเมลเข้าสู่ระบบเว็บนี้อย่างน้อย 1 ครั้งก่อน',
     CANNOT_REMOVE_SELF: 'ลบตัวเองไม่ได้',
     IS_STAFF: 'คนนี้เป็นทีมงาน ให้ลบสิทธิ์ทีมงานก่อน',
-    BAD_ROLE: 'สิทธิ์ไม่ถูกต้อง'
+    BAD_ROLE: 'สิทธิ์ไม่ถูกต้อง',
+    OWNER_ONLY: 'เฉพาะ Owner เท่านั้นที่จัดการแอดมินได้',
+    BAD_STUDENT_ID: 'รหัสนิสิตต้องเป็นตัวเลข 10 หลัก',
+    BAD_YEAR: 'ชั้นปีไม่ถูกต้อง'
   };
   function errMsg(e) {
     const m = String((e && (e.message || e.code)) || e || '');
@@ -114,7 +118,7 @@
         let cat = 'external', sid = null;
         if (em.endsWith('@student.chula.ac.th')) { if (/^\d{10}$/.test(local)) sid = local; cat = sid && sid.endsWith('21') ? 'eng' : 'chula_student'; }
         else if (em.endsWith('@chula.ac.th')) cat = 'chula_staff';
-        return { logged_in: true, email: em, category: cat, student_id: sid, year: yearOf(sid), faculty: facOf(sid), registered: !!me(), is_staff: true, is_admin: true };
+        return { logged_in: true, email: em, category: cat, student_id: sid, year: yearOf(sid), faculty: facOf(sid), registered: !!me(), is_staff: true, is_admin: true, is_owner: true };
       },
       register({ p }) {
         const info = rpc.my_email_info(), s = db.settings;
@@ -144,7 +148,8 @@
         }
         save(); return { ref_code: row.ref_code };
       },
-      update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (!p.nickname) fail('BAD_NICKNAME'); Object.assign(m, { phone, nickname: p.nickname }); save(); return null; },
+      update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!p.nickname) fail('BAD_NICKNAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); Object.assign(m, { phone, nickname: p.nickname, first_name: p.first_name, last_name: p.last_name }); save(); return null; },
+      admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null }); save(); return null; },
       my_points_history() { const m = me(); return db.ledger.filter(l => l.user_id === m.id).slice().reverse().map(l => ({ created_at: l.created_at, delta: l.delta, reason: l.reason, detail: detail(l) })); },
       group_leaderboard() {
         if (!db.settings.leaderboard_open) return GROUPS.map(c => ({ group_code: c, registered: db.profiles.filter(p => p.group_code === c).length })).sort((a, b) => b.registered - a.registered); // demo user is admin
@@ -343,6 +348,7 @@
     const page = location.pathname.split('/').pop() || 'index.html';
     const nav = [['index.html', 'หน้าหลัก'], info.registered ? ['me.html', 'บัตรของฉัน'] : ['register.html', 'ลงทะเบียน'], ['rewards.html', 'ของรางวัล']];
     if (settings.leaderboard_open) nav.push(['leaderboard.html', 'อันดับกรุ๊ป']);
+    nav.push(['contact.html', 'ติดตาม']);
     if (info.is_staff) nav.push(['staff.html', 'สแกน']);
     if (info.is_admin) nav.push(['admin.html', 'หลังบ้าน']);
     const stage = $('.stage');
@@ -361,10 +367,24 @@
       $('#demoReset').onclick = (e) => { e.preventDefault(); demo.reset(); location.reload(); };
     }
     const f = document.createElement('footer');
-    if (stage.classList.contains('wide')) f.className = 'wide';
-    f.innerHTML = `${esc(EVENT.hashtag)} · IG <a href="https://instagram.com/${esc(EVENT.ig)}" target="_blank" rel="noopener">@${esc(EVENT.ig)}</a>`;
+    f.innerHTML = `${esc(EVENT.hashtag)} · <a href="contact.html">ติดตามข่าวสาร / สอบถาม</a>`;
     document.body.appendChild(f);
     return { info, settings };
+  }
+
+  // Sign-in buttons. Chula accounts are Google accounts, so both go through Google;
+  // the CU button only offers @student.chula.ac.th accounts.
+  // Put the official CU logo file at assets/cu-logo.png to show it on the button.
+  const G_ICON = '<svg class="g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
+  function loginButtons(el, opts = {}) {
+    el.innerHTML = `<button class="btn big block" data-login="cu">เข้าสู่ระบบด้วยบัญชี <img class="cu" src="assets/cu-logo.png" alt="CU" onerror="this.outerHTML='<b>CU</b>'"></button>
+      ${opts.cuOnly ? '' : `<button class="btn big block" data-login="google">${G_ICON} เข้าสู่ระบบด้วย Google</button>`}`;
+    el.onclick = async (e) => {
+      const b = e.target.closest('[data-login]'); if (!b) return;
+      b.disabled = true;
+      try { await api.signIn({ hd: b.dataset.login === 'cu' ? 'student.chula.ac.th' : undefined }); }
+      catch (ex) { toast(errMsg(ex), true); b.disabled = false; }
+    };
   }
 
   function calendarLinks() {
@@ -400,5 +420,5 @@
     const s = e.target.closest('[data-share]'); if (s) return shareInvite(s.dataset.share);
   });
 
-  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard };
+  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard };
 })();

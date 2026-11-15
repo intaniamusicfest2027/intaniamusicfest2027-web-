@@ -25,11 +25,11 @@
 </style>
 </head>
 <body>
-<main class="stage wide"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+<main class="stage"><div class="inner w" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
 
 <script>
 (async () => {
-  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GENDER, REASON } = IMF;
+  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GENDER, REASON, GROUPS } = IMF;
   const root = $('#root');
   const { info } = await IMF.boot();
 
@@ -185,7 +185,7 @@
     const p = d.profile;
     const row = (k, v) => `<div><small>${k}</small><b>${esc(v == null || v === '' ? '–' : v)}</b></div>`;
     const m = IMF.modal(`<div class="stack">
-      <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>${esc(p.first_name)} ${esc(p.last_name)}</h2><div class="muted">${esc(p.nickname || '')}</div></div><button class="btn ghost small" data-close>ปิด</button></div>
+      <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>${esc(p.first_name)} ${esc(p.last_name)}</h2><div class="muted">${esc(p.nickname || '')}</div></div><div class="row"><button class="btn ghost small" id="edit">✎ แก้ไขข้อมูล</button><button class="btn ghost small" data-close>ปิด</button></div></div>
       <div class="kv">
         ${row('รหัสนิสิต', p.student_id)}${row('ประเภท', CATEGORY[p.category])}
         ${row('คณะ (จากรหัสนิสิต)', p.faculty)}${row('ชั้นปี (จากรหัสนิสิต)', yearTxt(p.year))}
@@ -201,6 +201,7 @@
       ${d.invited.length ? `<ul class="list small">${d.invited.map(f => `<li><div style="flex:1">${esc(f.name)} <span class="dim">${esc(f.student_id || '')}</span></div><span class="dim">${IMF.dateTH(f.created_at)}</span></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่ได้ชวนใคร</div>'}
       <button class="btn danger block" id="del">ลบคนนี้ออกจากระบบ</button>
     </div>`, { lg: true });
+    $('#edit', m.el).onclick = () => { m.close(); editModal(uid, p); };
     $('#adj', m.el).onclick = async () => {
       const v = prompt(`ปรับแต้มของ ${p.first_name} (ใส่ตัวเลข เช่น 5 หรือ -2)`); if (!v || isNaN(parseInt(v, 10))) return;
       const note = prompt('เหตุผล / ชื่อกิจกรรม (จะแสดงในประวัติแต้มของเขา)') || '';
@@ -211,6 +212,31 @@
       if (!confirm(`ลบ ${p.first_name} ${p.last_name} ออกจากระบบ?\n\nข้อมูลลงทะเบียน แต้ม และประวัติทั้งหมดของคนนี้จะหายถาวร เขาต้องเข้าสู่ระบบและลงทะเบียนใหม่`)) return;
       try { await rpc('admin_delete_person', { uid }); IMF.toast('ลบแล้ว'); m.close(); people(); }
       catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  function editModal(uid, p) {
+    const opt = (v, l, cur) => `<option value="${esc(v)}" ${String(cur || '') === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+    const m = IMF.modal(`<form class="stack" id="ef">
+      <h2>แก้ไขข้อมูล</h2>
+      <div class="grid-2"><label class="f"><span>ชื่อ</span><input class="input" name="first_name" value="${esc(p.first_name)}"></label>
+        <label class="f"><span>นามสกุล</span><input class="input" name="last_name" value="${esc(p.last_name)}"></label></div>
+      <div class="grid-2"><label class="f"><span>ชื่อเล่น</span><input class="input" name="nickname" value="${esc(p.nickname || '')}"></label>
+        <label class="f"><span>เบอร์โทร</span><input class="input" name="phone" value="${esc(p.phone)}"></label></div>
+      <div class="grid-2"><label class="f"><span>เพศ</span><select class="input" name="gender">${opt('', '–', p.gender)}${Object.keys(GENDER).map(k => opt(k, GENDER[k], p.gender)).join('')}</select></label>
+        <label class="f"><span>กรุ๊ป</span><select class="input" name="group_code">${opt('', '–', p.group_code)}${GROUPS.map(g => opt(g, g, p.group_code)).join('')}</select></label></div>
+      <div class="grid-2"><label class="f"><span>รหัสนิสิต</span><input class="input" name="student_id" inputmode="numeric" maxlength="10" value="${esc(p.student_id || '')}"></label>
+        <label class="f"><span>ชั้นปี</span><select class="input" name="year">${opt('', '–', p.year)}${Object.keys(YEAR).map(k => opt(k, YEAR[k], p.year)).join('')}</select></label></div>
+      <label class="f"><span>คณะ</span><input class="input" name="faculty" value="${esc(p.faculty || '')}"></label>
+      <div class="hint" style="color:#8a6a6d">อีเมลและประเภทผู้ลงทะเบียนแก้ไม่ได้ เพราะผูกกับบัญชีที่ใช้เข้าสู่ระบบ</div>
+      <div class="grid-2"><button type="button" class="btn ghost block" data-close>ยกเลิก</button><button class="btn red block">บันทึก</button></div>
+    </form>`, { lg: true, onClose: () => personModal(uid) });
+    $('#ef', m.el).onsubmit = async e => {
+      e.preventDefault(); const f = e.target, v = n => f[n].value.trim();
+      try {
+        await rpc('admin_update_person', { uid, p: { first_name: v('first_name'), last_name: v('last_name'), nickname: v('nickname'), phone: v('phone'), gender: v('gender'), group_code: v('group_code'), student_id: v('student_id'), year: v('year'), faculty: v('faculty') } });
+        IMF.toast('บันทึกแล้ว'); m.close(); people();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
 
@@ -369,21 +395,25 @@
   }
 
   // ---------------- team ----------------
+  const ROLE = { owner: 'Owner', admin: 'แอดมิน', staff: 'ทีมงาน' };
   async function teamTab() {
     const el = $('#t-team');
     let staff; try { staff = await api.staffList(); } catch (e) { return fail(el, e); }
-    el.innerHTML = `<div class="card stack" style="max-width:620px"><h3>ทีมงาน</h3>
-        <div class="hint">ทีมงานใช้หน้าสแกนได้ · แอดมินเข้าหลังบ้านได้ · คนที่จะเพิ่มต้องเข้าสู่ระบบเว็บนี้ด้วย Google อย่างน้อย 1 ครั้งก่อน</div>
+    const can = (r) => info.is_owner || r === 'staff';   // admins manage staff only; the owner manages everyone
+    const rank = { owner: 0, admin: 1, staff: 2 };
+    staff.sort((a, b) => rank[a.role] - rank[b.role]);
+    el.innerHTML = `<div class="card stack" style="max-width:680px"><h3>ทีมงาน</h3>
+        <div class="hint"><b>Owner</b> ทำได้ทุกอย่าง รวมถึงเพิ่ม/ลบ/เปลี่ยนสิทธิ์แอดมินและทีมงานทุกคน · <b>แอดมิน</b> ใช้หลังบ้านได้ทั้งหมด และจัดการได้เฉพาะทีมงาน · <b>ทีมงาน</b> ใช้หน้าสแกนได้อย่างเดียว<br>คนที่จะเพิ่มต้องเข้าสู่ระบบเว็บนี้อย่างน้อย 1 ครั้งก่อน</div>
         <form id="addst" class="row"><input class="input" name="em" type="email" placeholder="อีเมล" style="flex:1" required>
-          <select class="input" name="r" style="width:auto"><option value="staff">ทีมงาน</option><option value="admin">แอดมิน</option></select><button class="btn small">เพิ่ม</button></form>
-        <ul class="list">${staff.map(s => `<li><div style="flex:1" class="small">${esc(s.email)}</div><span class="chip ${s.role === 'admin' ? 'on' : ''}">${s.role === 'admin' ? 'แอดมิน' : 'ทีมงาน'}</span>
-          <button class="btn danger small" data-rm="${s.user_id}">ลบ</button></li>`).join('') || '<li class="dim">ยังไม่มี</li>'}</ul></div>`;
+          <select class="input" name="r" style="width:auto"><option value="staff">ทีมงาน</option>${info.is_owner ? '<option value="admin">แอดมิน</option><option value="owner">Owner</option>' : ''}</select><button class="btn small">เพิ่ม / เปลี่ยนสิทธิ์</button></form>
+        <ul class="list">${staff.map(s => `<li><div style="flex:1" class="small">${esc(s.email)}</div><span class="chip ${s.role !== 'staff' ? 'on' : ''}">${ROLE[s.role]}</span>
+          ${can(s.role) && s.email !== info.email ? `<button class="btn danger small" data-rm="${s.user_id}">ลบสิทธิ์</button>` : '<span style="width:74px"></span>'}</li>`).join('') || '<li class="dim">ยังไม่มี</li>'}</ul></div>`;
     $('#addst').onsubmit = async e => {
       e.preventDefault(); const f = e.target;
-      try { await rpc('admin_add_staff', { em: f.em.value.trim(), r: f.r.value }); IMF.toast('เพิ่มแล้ว'); teamTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+      try { await rpc('admin_add_staff', { em: f.em.value.trim(), r: f.r.value }); IMF.toast('บันทึกแล้ว'); teamTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
     el.onclick = async e => {
-      const b = e.target.closest('[data-rm]'); if (!b || !confirm('ลบสิทธิ์ทีมงานนี้?')) return;
+      const b = e.target.closest('[data-rm]'); if (!b || !confirm('ลบสิทธิ์ของคนนี้?')) return;
       try { await rpc('admin_remove_staff', { uid: b.dataset.rm }); teamTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }

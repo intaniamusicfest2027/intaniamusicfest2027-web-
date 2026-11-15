@@ -32,11 +32,11 @@ b, strong { font-weight: 700; }
   background:
     radial-gradient(120% 220px at 50% 100%, rgba(216, 20, 28, .55), rgba(216, 20, 28, 0) 70%),
     linear-gradient(180deg, #2a0508 0, #150204 420px, #120203 70%, #2a0407 100%); }
-.stage.wide { max-width: 1080px; }
+
 .art { position: absolute; left: 0; right: 0; top: 0; height: min(27vw, 128px); overflow: hidden; pointer-events: none;
-  background: url(hero.jpg) top center / 100% auto no-repeat;
+  background: url(lights.jpg) top center / cover no-repeat;
   -webkit-mask-image: linear-gradient(180deg, #000 35%, transparent); mask-image: linear-gradient(180deg, #000 35%, transparent); }
-.stage.wide .art { background-size: 100% auto; height: 150px; }
+
 .hero { position: relative; }
 .hero img { width: 100%; height: auto; }
 .hero:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 22%; background: linear-gradient(180deg, transparent, #2a0508); }
@@ -105,7 +105,8 @@ h3 { font-size: 19px; }
 .btn.ghost.small { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .6); }
 .btn.danger { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 1.5px var(--bad); }
 .btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
-.btn .g { width: 20px; height: 20px; }
+.btn .g { width: 22px; height: 22px; }
+.btn .cu { height: 26px; width: auto; }
 
 /* ---------- forms ---------- */
 label.f, .f { display: block; }
@@ -224,6 +225,7 @@ table.t td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-al
 .sheet .btn { box-shadow: 0 3px 10px rgba(0, 0, 0, .18); }
 .sheet .btn.ghost { background: #fff; color: #1a0305; box-shadow: inset 0 0 0 1.5px #1a0305; }
 .sheet .btn.ghost b { color: #1a0305; }
+.sheet .f > span { color: #6b4a4d; }
 .sheet .input { background: #fff; border-color: #cdb9bb; color: #1a0305; }
 .status { border-radius: 14px; padding: 14px; text-align: center; font-size: 26px; font-weight: 800; line-height: 1.2; color: #fff; }
 .status small { display: block; font-size: 14px; font-weight: 500; margin-top: 4px; }
@@ -232,4 +234,41 @@ table.t td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-al
 #reader video { border-radius: 16px; }
 
 footer { width: 100%; max-width: 480px; margin: 0 auto; padding: 14px 20px 26px; color: var(--ink-3); font-size: 12.5px; text-align: center; background: #2a0407; }
-footer.wide { max-width: 1080px; }
+
+
+/* ---------- sub-tabs (rewards page) ---------- */
+.subtabs { display: flex; gap: 6px; background: rgba(0, 0, 0, .4); border: 1px solid var(--line); border-radius: 999px; padding: 4px; }
+.subtabs button { flex: 1; border: 0; background: none; cursor: pointer; padding: 8px 10px; border-radius: 999px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.subtabs button.on { background: #fff; color: var(--red-ink); font-weight: 800; }
+.reward { cursor: pointer; }
+.follow { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+.follow .ic { flex: none; width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; background: linear-gradient(180deg, #ef2a32, var(--red-2)); }
+.follow b { display: block; font-size: 18px; }
+
+/* ---------- home ---------- */
+.home .pad { padding: 0 20px; }
+.home .poster { padding-bottom: 4px; }
+
+/* ---------- desktop ---------- */
+@media (min-width: 900px) {
+  .stage { max-width: 1120px; }
+  footer { max-width: 1120px; }
+  .inner { max-width: 600px; margin: 0 auto; }
+  .inner.w { max-width: none; padding: 0 32px; }
+  .inner.m { max-width: 920px; }
+  .art { height: 170px; }
+  .topbar { padding: 16px 32px 10px; }
+  .brand { width: 96px; }
+  .nav a { font-size: 15px; padding: 8px 16px; }
+  .page-title { padding-top: 46px; font-size: 40px; }
+  .rewards { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .home { display: grid; grid-template-columns: minmax(0, 470px) minmax(0, 1fr); gap: 56px; align-items: center; padding: 84px 40px 20px; min-height: calc(100dvh - 80px); }
+  .home .pad { padding: 0; }
+  .home .poster { border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, #2a0508, #150204); box-shadow: 0 24px 70px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .1); padding-bottom: 26px; }
+  .home .poster .pad { padding: 0 24px; }
+  .home .band { margin: 2px -24px 0; }
+  .home .side { max-width: 520px; }
+  .home .tagline { font-size: 21px; } .home .date { font-size: 46px; }
+  .countdown b { font-size: 46px; }
+  .modal { align-items: center; }
+}
