@@ -43,6 +43,7 @@
     BAD_REWARD: 'ของรางวัลนี้ปิดอยู่',
     BAD_ACTIVITY: 'กิจกรรมนี้ปิดอยู่',
     ALREADY_AWARDED: 'คนนี้รับ Point กิจกรรมนี้ไปแล้ว',
+    ALREADY_REDEEMED: 'คนนี้แลกของรางวัลนี้ไปแล้ว (แลกได้คนละ 1 ครั้ง)',
     NOT_ENOUGH_POINTS: 'Point ไม่พอ',
     OUT_OF_STOCK: 'ของรางวัลหมดแล้ว',
     USER_NOT_FOUND: 'ไม่พบบัญชีนี้ ให้เจ้าของอีเมลเข้าสู่ระบบเว็บนี้อย่างน้อย 1 ครั้งก่อน',
@@ -151,7 +152,7 @@
         save(); return { ref_code: row.ref_code };
       },
       update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!p.nickname) fail('BAD_NICKNAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); Object.assign(m, { phone, nickname: p.nickname, first_name: p.first_name, last_name: p.last_name }); save(); return null; },
-      admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null, category: p.category || r.category }); if (/^\d+$/.test(p.points || '') && +p.points !== r.points) { db.ledger.push({ user_id: uid, delta: +p.points - r.points, reason: 'adjust', note: 'แก้ไขโดยแอดมิน', created_at: new Date().toISOString() }); r.points = +p.points; } save(); return null; },
+      admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null, category: p.category || r.category }); if (/^\d+$/.test(p.points || '') && +p.points !== r.points) { db.ledger.push({ user_id: uid, delta: +p.points - r.points, reason: 'adjust', note: 'แก้ไขโดยแอดมิน', created_at: new Date().toISOString() }); r.points = +p.points; } if ('checked_in' in p) r.checked_in_at = p.checked_in ? (r.checked_in_at || new Date().toISOString()) : null; save(); return null; },
       my_qr() { const m = me(); const w = Math.floor(Date.now() / 180000); return { code: 'IMF27:' + m.qr_token + ':' + w + ':demo', expires_in: Math.ceil((w + 1) * 180 - Date.now() / 1000) }; },
       my_points_history() { const m = me(); return db.ledger.filter(l => l.user_id === m.id).slice().reverse().map(l => ({ created_at: l.created_at, delta: l.delta, reason: l.reason, detail: detail(l) })); },
       group_leaderboard() {
@@ -169,14 +170,14 @@
       staff_redeem({ uid, reward }) {
         if (!db.settings.redeem_open) fail('REDEEM_CLOSED');
         const r = db.profiles.find(p => p.id === uid), w = db.rewards.find(x => x.id === reward && x.active);
-        if (!w) fail('BAD_REWARD'); if (r.points < w.cost) fail('NOT_ENOUGH_POINTS'); if (w.stock !== null && w.stock <= 0) fail('OUT_OF_STOCK');
+        if (!w) fail('BAD_REWARD'); if (w.repeatable === false && db.ledger.some(l => l.user_id === uid && l.reward_id === w.id)) fail('ALREADY_REDEEMED'); if (r.points < w.cost) fail('NOT_ENOUGH_POINTS'); if (w.stock !== null && w.stock <= 0) fail('OUT_OF_STOCK');
         if (w.stock !== null) w.stock--; r.points -= w.cost; db.ledger.push({ user_id: r.id, delta: -w.cost, reason: 'redeem', reward_id: w.id, created_at: new Date().toISOString() }); save();
         return { points: r.points, reward: w.name };
       },
       staff_award({ uid, activity }) {
         const r = db.profiles.find(p => p.id === uid), a = db.activities.find(x => x.id === activity && x.active);
         if (!a) fail('BAD_ACTIVITY');
-        if (db.ledger.some(l => l.user_id === uid && l.activity_id === a.id)) fail('ALREADY_AWARDED');
+        if (!a.repeatable && db.ledger.some(l => l.user_id === uid && l.activity_id === a.id)) fail('ALREADY_AWARDED');
         r.points += a.points; db.ledger.push({ user_id: uid, delta: a.points, reason: 'activity', activity_id: a.id, created_at: new Date().toISOString() }); save();
         return { points: r.points, added: a.points, activity: a.name };
       },

@@ -52,8 +52,8 @@
     <section id="p-earn" class="stack hide">
       <div class="card stack"><h3>ชวนเพื่อน</h3><div class="muted">ส่งรหัสชวนเพื่อนของคุณให้เพื่อนกรอกตอนลงทะเบียน ได้ Point ทั้งคนชวนและคนถูกชวน</div>
         <a class="btn ghost small" style="align-self:flex-start" href="${me ? 'me.html' : 'register.html'}">${me ? 'ดูรหัสของฉัน' : 'ลงทะเบียนรับรหัส'}</a></div>
-      ${acts.length ? `<div class="card"><h3 style="margin-bottom:6px">กิจกรรมในงาน</h3><ul class="list">${acts.map(a => `<li><div style="flex:1">${esc(a.name)}</div><b style="color:var(--ok)">+${fmt(a.points)} Point</b></li>`).join('')}</ul>
-        <div class="hint">ร่วมกิจกรรมแล้วให้ทีมงานสแกน QR ในบัตรของคุณ · รับได้กิจกรรมละ 1 ครั้ง</div></div>` : '<div class="card muted center">กิจกรรมสะสม Point อื่น ๆ จะประกาศเร็ว ๆ นี้</div>'}
+      ${acts.length ? `<div class="card"><h3 style="margin-bottom:6px">กิจกรรมในงาน</h3><ul class="list">${acts.map(a => `<li><div style="flex:1">${esc(a.name)}</div><span class="small dim">${a.repeatable ? 'รับซ้ำได้' : '1 ครั้ง/คน'}</span><b style="color:var(--ok)">+${fmt(a.points)} Point</b></li>`).join('')}</ul>
+        <div class="hint">ร่วมกิจกรรมแล้วให้ทีมงานสแกน QR ในบัตรของคุณ</div></div>` : '<div class="card muted center">กิจกรรมสะสม Point อื่น ๆ จะประกาศเร็ว ๆ นี้</div>'}
     </section>
 
     <section id="p-history" class="hide">

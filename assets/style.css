@@ -201,7 +201,7 @@ table.t td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-al
 .tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: 18px; scrollbar-width: none; }
 .tabs button { background: none; border: none; color: var(--ink-2); padding: 10px 14px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; font-weight: 600; }
 .tabs button.on { color: #fff; border-bottom-color: #fff; }
-.switch { position: relative; width: 50px; height: 28px; flex: none; }
+.switch { position: relative; display: inline-block; vertical-align: middle; width: 50px; height: 28px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch i { position: absolute; inset: 0; background: rgba(255, 255, 255, .22); border-radius: 999px; transition: .2s; cursor: pointer; }
 .switch i:before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; }
@@ -226,6 +226,8 @@ table.t td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-al
 .sheet .btn.ghost { background: #fff; color: #1a0305; box-shadow: inset 0 0 0 1.5px #1a0305; }
 .sheet .btn.ghost b { color: #1a0305; }
 .sheet .f > span { color: #6b4a4d; }
+.sheet .switch i { background: #cdb9bb; }
+.sheet .setting small { color: #8a6a6d; }
 .sheet .input { background: #fff; border-color: #cdb9bb; color: #1a0305; }
 .status { border-radius: 14px; padding: 14px; text-align: center; font-size: 26px; font-weight: 800; line-height: 1.2; color: #fff; }
 .status small { display: block; font-size: 14px; font-weight: 500; margin-top: 4px; }
@@ -251,7 +253,8 @@ footer { width: 100%; max-width: 480px; margin: 0 auto; padding: 14px 20px 26px;
 
 .qrbar { height: 4px; background: #eadcdd; border-radius: 4px; overflow: hidden; margin: 12px auto 6px; max-width: 260px; }
 .qrbar i { display: block; height: 100%; width: 100%; background: var(--red-ink); transition: width 1s linear; }
-.follow .ic img { width: 100%; height: 100%; object-fit: cover; border-radius: 14px; }
+.follow .ic { overflow: hidden; }
+.follow .ic img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- desktop: full-width page ---------- */
 @media (min-width: 900px) {
@@ -267,9 +270,11 @@ footer { width: 100%; max-width: 480px; margin: 0 auto; padding: 14px 20px 26px;
   .page-title { padding-top: 46px; font-size: 40px; }
   .rewards { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
   .stage:has(.home) { background:
-      radial-gradient(60% 300px at 50% 100%, rgba(216, 20, 28, .5), rgba(216, 20, 28, 0) 70%),
-      linear-gradient(180deg, rgba(26, 3, 5, .25), rgba(18, 2, 3, .92) 62%, #120203),
-      url(lights.jpg) top center / cover no-repeat #150204; }
+      radial-gradient(900px 520px at 50% -140px, rgba(232, 30, 40, .85), rgba(216, 20, 28, 0) 72%),
+      radial-gradient(520px 620px at 8% -80px, rgba(255, 120, 120, .22), rgba(255, 120, 120, 0) 70%),
+      radial-gradient(520px 620px at 92% -80px, rgba(255, 120, 120, .22), rgba(255, 120, 120, 0) 70%),
+      radial-gradient(70% 340px at 50% 100%, rgba(216, 20, 28, .45), rgba(216, 20, 28, 0) 70%),
+      linear-gradient(180deg, #3a070b 0, #1a0305 520px, #120203 100%); }
   .home { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 560px); gap: clamp(40px, 6vw, 96px); justify-content: center; align-items: start;
     padding: 96px 40px 30px; min-height: calc(100dvh - 60px); }
   .home .pad { padding: 0; }
