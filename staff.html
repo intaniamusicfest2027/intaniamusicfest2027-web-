@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a0305">
+<title>สแกน · INTANIA MUSIC FEST</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/vendor/html5-qrcode.min.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+
+<script>
+(async () => {
+  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GENDER } = IMF;
+  const root = $('#root');
+  const { info, settings } = await IMF.boot();
+
+  if (!info.logged_in) {
+    root.innerHTML = `<div class="stack"><h1 class="page-title">ทีมงาน</h1><button class="btn big block" id="login">เข้าสู่ระบบด้วย <b>Google</b></button></div>`;
+    $('#login').onclick = () => api.signIn(); return;
+  }
+  if (!info.is_staff) {
+    root.innerHTML = `<div class="card" style="margin-top:60px">บัญชี ${esc(info.email)} ยังไม่ได้รับสิทธิ์ทีมงาน ให้แอดมินเพิ่มสิทธิ์ในหน้าหลังบ้าน</div>`; return;
+  }
+
+  let rewards = [], activities = [];
+  try { [rewards, activities] = await Promise.all([api.rewards.list(), api.activities.list()]); } catch (e) {}
+  let mode = 'checkin', open = null, busy = false, scanner = null, lastText = '', lastAt = 0;
+
+  root.innerHTML = `<div class="stack" style="padding-top:22px">
+    <div class="seg" id="mode">
+      <button type="button" data-v="checkin" class="on">🎟️ เข้างาน</button>
+      <button type="button" data-v="redeem">🎁 แลกของ</button>
+      <button type="button" data-v="award">⭐ ให้แต้ม</button>
+    </div>
+    <label class="f hide" id="actbox"><span>กิจกรรมที่จะให้แต้ม</span>
+      <select class="input" id="act">${activities.map(a => `<option value="${a.id}">${esc(a.name)} (+${a.points} แต้ม)</option>`).join('') || '<option value="">ยังไม่มีกิจกรรม เพิ่มได้ที่หลังบ้าน</option>'}</select></label>
+    <div id="reader"></div>
+    <button class="btn block" id="cam"><b>เปิดกล้อง</b>สแกน QR</button>
+    <form id="manual" class="row" autocomplete="off">
+      <input class="input" name="q" placeholder="หรือพิมพ์ รหัสนิสิต / รหัสชวน / อีเมล" style="flex:1">
+      <button class="btn small">ค้นหา</button>
+    </form>
+    <div class="card"><div class="card-title"><h3>ล่าสุด</h3><span class="small dim" id="count">0 รายการ</span></div><ul class="list small" id="log"><li class="dim">ยังไม่มีรายการ</li></ul></div>
+  </div>`;
+
+  const log = [];
+  const now = () => new Date().toLocaleTimeString('th-TH');
+  function addLog(t) { log.unshift(t); $('#log').innerHTML = log.slice(0, 15).map(x => `<li>${x}</li>`).join(''); $('#count').textContent = log.length + ' รายการ'; }
+  function beep(ok) {
+    try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(); o.frequency.value = ok ? 880 : 220; o.connect(c.destination); o.start(); setTimeout(() => { o.stop(); c.close(); }, ok ? 120 : 350); } catch (e) {}
+    if (navigator.vibrate) navigator.vibrate(ok ? 60 : [80, 60, 80]);
+  }
+
+  $('#mode').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('#mode button').forEach(x => x.classList.toggle('on', x === b));
+    mode = b.dataset.v;
+    $('#actbox').classList.toggle('hide', mode !== 'award');
+    if (mode === 'redeem' && !settings.redeem_open) IMF.toast('ยังไม่เปิดระบบแลกแต้ม (เปิดที่หลังบ้าน → ตั้งค่า)', true);
+  });
+
+  const person = (p) => `<div style="font-size:26px;font-weight:800;line-height:1.2">${esc(p.name)}${p.nickname ? ` <span class="dim" style="font-weight:600">(${esc(p.nickname)})</span>` : ''}</div>
+    <div class="kv">
+      ${p.student_id ? `<div><small>รหัสนิสิต</small><b>${esc(p.student_id)}</b></div><div><small>ชั้นปี</small><b>${p.year ? esc(YEAR[p.year]) : '–'}</b></div><div class="full"><small>คณะ</small><b>${esc(p.faculty || '–')}${p.group_code ? ' · กรุ๊ป ' + esc(p.group_code) : ''}</b></div>`
+        : `<div class="full"><small>ประเภท</small><b>${esc(CATEGORY[p.category])}</b></div>`}
+      <div><small>เพศ</small><b>${esc(GENDER[p.gender] || '–')}</b></div><div><small>แต้ม</small><b>${fmt(p.points)}</b></div>
+    </div>
+    ${p.by_token ? '' : '<div class="chip warn" style="margin-top:10px;color:#9a5b00;border-color:#d98200;background:#fff6e5">ค้นหาด้วยการพิมพ์ ให้ตรวจบัตรนิสิต/บัตรประชาชนก่อน</div>'}`;
+  const closeBtn = '<button class="btn ghost block" data-close>ปิด</button>';
+
+  function show(html) {
+    if (open) open.close();
+    open = IMF.modal(html, { onClose: () => { open = null; lastAt = Date.now(); } });
+    return open.el;
+  }
+
+  // every scan / search opens a pop-up; nothing is changed until the staff taps the button
+  async function handle(text) {
+    if (busy || open) return;
+    busy = true;
+    try {
+      const p = await rpc('staff_lookup', { q: text });
+      beep(true);
+      if (mode === 'checkin') popCheckin(p);
+      else if (mode === 'redeem') popRedeem(p);
+      else popAward(p);
+    } catch (e) {
+      beep(false);
+      show(`<div class="stack"><div class="status bad">❌ ${esc(IMF.errMsg(e))}</div>${closeBtn}</div>`);
+    } finally { busy = false; }
+  }
+
+  function popCheckin(p) {
+    if (p.checked_in_at) {
+      beep(false);
+      show(`<div class="stack"><div class="status warn">⚠️ เข้างานแล้ว<small>เมื่อ ${IMF.dateTH(p.checked_in_at)}</small></div>${person(p)}${closeBtn}</div>`);
+      return;
+    }
+    const el = show(`<div class="stack"><div class="status info">ยังไม่ได้เข้างาน</div>${person(p)}
+      <button class="btn red big block" id="go">✅ ยืนยัน<b>เข้างาน</b></button>${closeBtn}</div>`);
+    $('#go', el).onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await rpc('staff_checkin', { uid: p.id });
+        beep(r.ok);
+        addLog(`${r.ok ? '✅' : '⚠️'} ${esc(p.name)} <span class="dim">${now()}</span>`);
+        const el2 = show(`<div class="stack"><div class="status ${r.ok ? 'ok' : 'warn'}">${r.ok ? '✅ เข้างานเรียบร้อย' : '⚠️ เข้างานแล้ว'}<small>${IMF.dateTH(r.checked_in_at)}</small></div>${person(p)}${closeBtn}</div>`);
+        if (r.ok) { const mine = open; setTimeout(() => { if (open === mine) mine.close(); }, 1800); }
+      } catch (ex) { beep(false); IMF.toast(IMF.errMsg(ex), true); e.target.disabled = false; }
+    };
+  }
+
+  function popRedeem(p) {
+    const el = show(`<div class="stack">${person(p)}
+      <div class="row" style="justify-content:space-between"><span class="muted">แต้มคงเหลือ</span><span class="points-big" style="font-size:56px;color:var(--red-ink)">${fmt(p.points)}</span></div>
+      <div class="stack" id="rw">${rewards.map(r => {
+        const can = settings.redeem_open && p.points >= r.cost && (r.stock == null || r.stock > 0);
+        return `<button class="btn ${can ? 'red' : 'ghost'} block" data-id="${r.id}" ${can ? '' : 'disabled'} style="justify-content:space-between">
+          <span>${esc(r.name)}${r.stock != null ? ` <small>(เหลือ ${fmt(r.stock)})</small>` : ''}</span><span>${fmt(r.cost)} แต้ม</span></button>`;
+      }).join('') || '<div class="dim">ยังไม่มีของรางวัล เพิ่มได้ที่หลังบ้าน</div>'}</div>
+      ${settings.redeem_open ? '' : '<div class="errtext" style="color:#b3261e">ยังไม่เปิดระบบแลกแต้ม</div>'}${closeBtn}</div>`);
+    $('#rw', el).onclick = async e => {
+      const b = e.target.closest('button[data-id]'); if (!b) return;
+      const rw = rewards.find(r => r.id == b.dataset.id);
+      if (!confirm(`แลก "${rw.name}" ใช้ ${rw.cost} แต้ม?`)) return;
+      b.disabled = true;
+      try {
+        const r = await rpc('staff_redeem', { uid: p.id, reward: rw.id });
+        beep(true); IMF.toast(`แลก ${r.reward} สำเร็จ เหลือ ${r.points} แต้ม`);
+        addLog(`🎁 ${esc(p.name)} · ${esc(r.reward)} <span class="dim">${now()}</span>`);
+        rewards = await api.rewards.list();
+        p.points = r.points; popRedeem(p);
+      } catch (ex) { beep(false); IMF.toast(IMF.errMsg(ex), true); b.disabled = false; }
+    };
+  }
+
+  function popAward(p) {
+    const a = activities.find(x => x.id == $('#act').value);
+    if (!a) { show(`<div class="stack"><div class="status bad">ยังไม่ได้เลือกกิจกรรม</div>${closeBtn}</div>`); return; }
+    const el = show(`<div class="stack"><div class="status info">${esc(a.name)}<small>+${a.points} แต้ม</small></div>${person(p)}
+      <button class="btn red big block" id="go">⭐ ให้ <b>+${a.points} แต้ม</b></button>${closeBtn}</div>`);
+    $('#go', el).onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const r = await rpc('staff_award', { uid: p.id, activity: a.id });
+        beep(true); addLog(`⭐ ${esc(p.name)} · ${esc(r.activity)} +${r.added} <span class="dim">${now()}</span>`);
+        show(`<div class="stack"><div class="status ok">⭐ ให้แล้ว +${r.added} แต้ม<small>รวม ${fmt(r.points)} แต้ม</small></div>${closeBtn}</div>`);
+        const mine = open; setTimeout(() => { if (open === mine) mine.close(); }, 1800);
+      } catch (ex) {
+        beep(false);
+        show(`<div class="stack"><div class="status warn">⚠️ ${esc(IMF.errMsg(ex))}</div>${person(p)}${closeBtn}</div>`);
+      }
+    };
+  }
+
+  $('#manual').onsubmit = e => { e.preventDefault(); const v = e.target.q.value.trim(); if (v) handle(v); };
+
+  $('#cam').onclick = async () => {
+    if (scanner) { await scanner.stop().catch(() => {}); scanner.clear(); scanner = null; $('#cam').innerHTML = '<b>เปิดกล้อง</b>สแกน QR'; return; }
+    scanner = new Html5Qrcode('reader');
+    try {
+      await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: (w, h) => { const s = Math.floor(Math.min(w, h) * 0.7); return { width: s, height: s }; } },
+        text => {
+          const t = Date.now();
+          if (open || (text === lastText && t - lastAt < 3000)) return;   // wait until the pop-up is closed
+          lastText = text; lastAt = t; handle(text);
+        });
+      $('#cam').innerHTML = 'ปิดกล้อง';
+    } catch (e) { scanner = null; IMF.toast('เปิดกล้องไม่ได้: ' + (e.message || e), true); }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a0305">
+<title>ลงทะเบียน · INTANIA MUSIC FEST</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+
+<script>
+(async () => {
+  const { api, rpc, $, $$, esc, fmt, EVENT, GROUPS, CATEGORY, YEAR, GENDER } = IMF;
+  const root = $('#root');
+
+  // remember a friend's code from the invite link (survives the Google sign-in redirect)
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('ref')) localStorage.setItem('imf_ref', qs.get('ref').toUpperCase().slice(0, 6));
+
+  const { info, settings } = await IMF.boot();
+  const savedRef = settings.referral_open ? (localStorage.getItem('imf_ref') || '') : '';
+  const engOnly = settings.eng_round_open && !settings.general_round_open;
+  const closed = !settings.eng_round_open && !settings.general_round_open;
+  const G_ICON = '<svg class="g" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
+
+  if (info.logged_in && info.registered) { location.replace('me.html'); return; }
+
+  // ---------- step 1: sign in ----------
+  if (!info.logged_in) {
+    root.innerHTML = `<div class="stack">
+      <h1 class="page-title">ลงทะเบียน</h1>
+      ${closed ? `<div class="card center">ตอนนี้ยังไม่เปิดลงทะเบียน<div class="muted small">ติดตามได้ที่ IG @${esc(EVENT.ig)}</div></div>` : `
+      <p class="muted center" style="margin:0">${engOnly
+        ? 'รอบนี้สำหรับ<b style="color:#fff">นิสิตคณะวิศวกรรมศาสตร์</b><br>เข้าสู่ระบบด้วยอีเมลจุฬาฯ (รหัสนิสิต@student.chula.ac.th)'
+        : 'เข้าสู่ระบบด้วยบัญชี Google<br>นิสิตและบุคลากรจุฬาฯ ให้ใช้อีเมลจุฬาฯ'}</p>
+      ${savedRef ? `<div class="center"><span class="chip on">รหัสเพื่อน ${esc(savedRef)}</span></div>` : ''}
+      <button class="btn big block" id="login">${G_ICON} เข้าสู่ระบบด้วย <b>Google</b></button>
+      <div class="hint center">กรอกข้อมูลอีกไม่กี่ช่องก็เสร็จ ใช้เวลาไม่ถึง 1 นาที</div>`}
+    </div>`;
+    const b = $('#login');
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      try { await api.signIn({ hd: engOnly ? 'student.chula.ac.th' : undefined }); }
+      catch (e) { IMF.toast(IMF.errMsg(e), true); b.disabled = false; }
+    };
+    return;
+  }
+
+  // ---------- signed in, but this round isn't for them ----------
+  const cat = info.category;
+  let blocked = null;
+  if (closed) blocked = 'ตอนนี้ยังไม่เปิดลงทะเบียน';
+  else if (engOnly && cat !== 'eng') blocked = cat === 'external'
+    ? 'รอบนี้ต้องใช้อีเมลจุฬาฯ (@student.chula.ac.th) ของนิสิตวิศวะ ลองเปลี่ยนบัญชีแล้วเข้าสู่ระบบใหม่'
+    : 'รอบนี้เปิดเฉพาะนิสิตวิศวะก่อน รอบสำหรับประชาคมจุฬาฯ จะเปิดเร็ว ๆ นี้';
+  else if (cat === 'external' && !settings.allow_external) blocked = 'รอบนี้เปิดเฉพาะนิสิตและบุคลากรจุฬาฯ กรุณาใช้อีเมลจุฬาฯ';
+  if (blocked) {
+    root.innerHTML = `<div class="stack"><h1 class="page-title">ยังลงทะเบียนไม่ได้</h1>
+      <div class="card">${esc(blocked)}<div class="hint">เข้าสู่ระบบอยู่ด้วย ${esc(info.email)}</div></div>
+      <button class="btn ghost block" id="switch">เปลี่ยนบัญชี</button></div>`;
+    $('#switch').onclick = async () => { await api.signOut(); location.reload(); };
+    return;
+  }
+
+  // ---------- step 2: the form ----------
+  const who = info.student_id
+    ? [info.student_id, info.faculty ? 'คณะ' + info.faculty : '', info.year ? YEAR[info.year] : ''].filter(Boolean).join(' · ')
+    : CATEGORY[cat];
+  root.innerHTML = `<form id="f" class="stack" novalidate>
+    <h1 class="page-title">กรอกข้อมูล</h1>
+    <div class="card small" style="padding:12px 14px">
+      <div class="row" style="justify-content:space-between"><b>${esc(who)}</b><a href="#" id="switch" class="dim">เปลี่ยนบัญชี</a></div>
+      <div class="dim">${esc(info.email)}</div>
+    </div>
+    <div class="grid-2">
+      <label class="f"><span>ชื่อ</span><input class="input" name="first_name" autocomplete="given-name"></label>
+      <label class="f"><span>นามสกุล</span><input class="input" name="last_name" autocomplete="family-name"></label>
+    </div>
+    <div class="grid-2">
+      <label class="f"><span>ชื่อเล่น</span><input class="input" name="nickname" autocomplete="nickname"></label>
+      <label class="f"><span>เบอร์โทร</span><input class="input" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="08x-xxx-xxxx"></label>
+    </div>
+    <div class="f"><span>เพศ</span><div class="seg" id="gender">${Object.keys(GENDER).map(k => `<button type="button" data-v="${k}">${GENDER[k]}</button>`).join('')}</div></div>
+    ${cat === 'eng' ? `<div class="f"><span>กรุ๊ป</span><div class="seg groups" id="group">${GROUPS.map(g => `<button type="button" data-v="${g}">${g}</button>`).join('')}</div></div>` : ''}
+    ${settings.referral_open ? `<label class="f"><span>รหัสเพื่อน <i>(ถ้ามีเพื่อนชวนมา ได้แต้มทั้งคู่)</i></span><input class="input" name="ref_code" maxlength="6" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
+    <label class="check"><input type="checkbox" name="consent">
+      <span>ยินยอมให้ทีมงาน INTANIA MUSIC FEST เก็บและใช้ข้อมูลนี้เพื่อการลงทะเบียน การติดต่อ และการจัดงานครั้งนี้เท่านั้น</span></label>
+    <div id="err" class="errtext"></div>
+    <button class="btn big block" id="submit"><b>ลงทะเบียน</b></button>
+  </form>`;
+
+  $('#switch').onclick = async (e) => { e.preventDefault(); await api.signOut(); location.reload(); };
+  $$('.seg').forEach(box => box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $$('button', box).forEach(x => x.classList.toggle('on', x === b)); box.dataset.value = b.dataset.v; box.classList.remove('err');
+  }));
+
+  $('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = $('#submit'), err = $('#err');
+    $$('.err', f).forEach(i => i.classList.remove('err'));
+    err.textContent = '';
+    const p = {
+      first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), nickname: f.nickname.value.trim(),
+      phone: f.phone.value, gender: $('#gender').dataset.value || null,
+      group_code: $('#group') ? ($('#group').dataset.value || null) : null,
+      ref_code: f.ref_code ? f.ref_code.value.trim().toUpperCase() : '', consent: f.consent.checked
+    };
+    const bad = (el, msg) => { if (el) el.classList.add('err'); err.textContent = msg; (el || btn).scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+    if (!p.first_name) return bad(f.first_name, 'กรุณากรอกชื่อ');
+    if (!p.last_name) return bad(f.last_name, 'กรุณากรอกนามสกุล');
+    if (!p.nickname) return bad(f.nickname, IMF.errMsg('BAD_NICKNAME'));
+    if (!/^0\d{8,9}$/.test(p.phone.replace(/\D/g, ''))) return bad(f.phone, IMF.errMsg('BAD_PHONE'));
+    if (!p.gender) return bad($('#gender'), IMF.errMsg('BAD_GENDER'));
+    if ($('#group') && !p.group_code) return bad($('#group'), IMF.errMsg('BAD_GROUP'));
+    if (!p.consent) return bad(null, IMF.errMsg('NO_CONSENT'));
+
+    btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+    try {
+      await rpc('register', { p });
+      localStorage.removeItem('imf_ref');
+      success(p.nickname);
+    } catch (ex) {
+      const raw = String(ex.message || '');
+      bad(/BAD_REF/.test(raw) ? f.ref_code : null, IMF.errMsg(ex));
+      if (/ALREADY_REGISTERED/.test(raw)) setTimeout(() => location.replace('me.html'), 1200);
+      btn.disabled = false; btn.innerHTML = '<b>ลงทะเบียน</b>';
+    }
+  };
+
+  async function success(name) {
+    window.scrollTo(0, 0);
+    const me = settings.referral_open ? await api.myProfile().catch(() => null) : null;
+    root.innerHTML = `<div class="stack">
+      <h1 class="page-title">ลงทะเบียนสำเร็จ 🎉</h1>
+      <p class="muted center" style="margin:0">เจอกันนะ ${esc(name)}<br>28 มกราคม 2570 ที่ลานอินทาเนีย</p>
+      ${me && me.points ? `<div class="center"><span class="chip on">ได้รับ ${fmt(me.points)} แต้มจากรหัสเพื่อน</span></div>` : ''}
+      ${me ? IMF.inviteCard(me, settings) : ''}
+      <a class="btn big block" href="me.html">ไปที่<b>บัตรของฉัน</b></a>
+    </div>`;
+  }
+})();
+</script>
+</body>
+</html>

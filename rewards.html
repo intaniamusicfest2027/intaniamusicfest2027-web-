@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a0305">
+<title>ของรางวัล · INTANIA MUSIC FEST</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main class="stage"><div class="inner stack" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+
+<script>
+(async () => {
+  const { api, $, esc, fmt } = IMF;
+  const root = $('#root');
+  const { info } = await IMF.boot();
+  let list, me = null;
+  try {
+    list = await api.rewards.list();
+    if (info.registered) me = await api.myProfile().catch(() => null);
+  } catch (e) { root.innerHTML = `<div class="card" style="margin-top:60px">${esc(IMF.errMsg(e))}</div>`; return; }
+
+  root.innerHTML = `<h1 class="page-title">ของรางวัล</h1>
+    ${me ? `<div class="card row" style="justify-content:space-between"><span class="muted">แต้มของฉัน</span><b style="font-size:30px;line-height:1">${fmt(me.points)}</b></div>` : ''}
+    <div class="card small"><b>วิธีแลก</b> · นำ QR ใน<a href="me.html">บัตรของฉัน</a>ไปที่จุดแลกของรางวัลในวันงาน ทีมงานจะสแกนและตัดแต้มให้ (แลกผ่านเว็บไม่ได้)</div>
+    ${list.length ? `<div class="rewards">${list.map(r => {
+      const out = r.stock != null && r.stock <= 0;
+      return `<div class="reward ${out ? 'out' : ''}">
+        <div class="pic" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : '🎁'}</div>
+        <div class="body"><div class="nm">${esc(r.name)}</div>${r.description ? `<div class="ds">${esc(r.description)}</div>` : ''}
+          <div class="cost">${fmt(r.cost)} แต้ม</div>
+          <div class="st">${out ? 'หมดแล้ว' : r.stock != null ? 'เหลือ ' + fmt(r.stock) + ' ชิ้น' : 'มีจำนวนจำกัด'}${me && !out && me.points < r.cost ? ` · ขาดอีก ${fmt(r.cost - me.points)} แต้ม` : ''}</div></div></div>`;
+    }).join('')}</div>` : '<div class="card center muted">ของรางวัลจะประกาศเร็ว ๆ นี้</div>'}`;
+})();
+</script>
+</body>
+</html>

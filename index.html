@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a0305">
+<title>INTANIA MUSIC FEST</title>
+<meta name="description" content="28 มกราคม 2570 · 17:00–22:00 น. · ลานอินทาเนีย คณะวิศวกรรมศาสตร์ จุฬาลงกรณ์มหาวิทยาลัย">
+<meta property="og:title" content="INTANIA MUSIC FEST">
+<meta property="og:description" content="กลับมาอีกครั้ง เทศกาลดนตรีสุดยิ่งใหญ่ · 28 มกราคม 2570 · ลงทะเบียนเลย">
+<meta property="og:image" content="assets/hero.jpg">
+<link rel="icon" href="assets/icon.png">
+<link rel="preload" as="image" href="assets/hero.jpg" fetchpriority="high">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main class="stage">
+  <div class="hero"><img src="assets/hero.jpg" width="1080" height="678" alt="INTANIA MUSIC FEST"></div>
+  <div class="inner stack">
+    <div class="tagline">กลับมาอีกครั้ง เทศกาลดนตรีสุดยิ่งใหญ่<span class="band">ที่ชาวอินทาเนีย และเพื่อนจุฬาฯ ห้ามพลาด !</span></div>
+    <div>
+      <div class="date">28 มกราคม 2570</div>
+      <div class="time">17:00 – 22:00 น.</div>
+      <div class="place">ณ ลานอินทาเนีย คณะวิศวกรรมศาสตร์<br>จุฬาลงกรณ์มหาวิทยาลัย</div>
+    </div>
+    <div class="countdown" id="countdown" aria-label="นับถอยหลังถึงวันงาน"></div>
+    <div id="cta" class="stack"><div class="spinner"></div></div>
+    <div id="invite"></div>
+    <div id="anns" class="stack"></div>
+    <div class="row" style="justify-content:center">
+      <a class="btn ghost small" id="gcal" target="_blank" rel="noopener">+ Google Calendar</a>
+      <a class="btn ghost small" id="ical">+ Apple Calendar</a>
+    </div>
+    <div class="hashtag">#IntaniaMusicFest2027isBack</div>
+  </div>
+</main>
+
+<script>
+(async () => {
+  const { api, $, esc, fmt, EVENT } = IMF;
+  const cal = IMF.calendarLinks();
+  $('#gcal').href = cal.google; $('#ical').href = cal.ics;
+
+  const end = new Date(EVENT.start).getTime();
+  const tick = () => {
+    let s = Math.max(0, Math.floor((end - Date.now()) / 1000));
+    const d = Math.floor(s / 86400); s %= 86400;
+    const h = Math.floor(s / 3600); s %= 3600;
+    const m = Math.floor(s / 60); s %= 60;
+    $('#countdown').innerHTML = [[d, 'วัน'], [h, 'ชั่วโมง'], [m, 'นาที'], [s, 'วินาที']]
+      .map(([v, l]) => `<div><b>${String(v).padStart(2, '0')}</b><span>${l}</span></div>`).join('');
+  };
+  tick(); setInterval(tick, 1000);
+
+  const { info, settings: s } = await IMF.boot({ overlay: true, noBrand: true });
+  const open = s.eng_round_open || s.general_round_open;
+
+  // register / my ticket
+  let cta;
+  if (info.registered) cta = `<a class="btn big block" href="me.html">ดู<b>บัตรของฉัน</b></a>`;
+  else if (s.general_round_open) cta = `<a class="btn big block" href="register.html"><b>ลงทะเบียน</b>เข้างาน</a>`;
+  else if (s.eng_round_open) cta = `<a class="btn big block" href="register.html"><b>ลงทะเบียน</b>รอบนิสิตวิศวะ</a>
+      <div class="small muted center">ใช้อีเมลจุฬาฯ (@student.chula.ac.th) ของนิสิตคณะวิศวกรรมศาสตร์</div>`;
+  else cta = `<div class="card center"><b>ยังไม่เปิดลงทะเบียน</b><div class="muted small">ติดตามได้ที่ IG @${esc(EVENT.ig)}</div></div>`;
+  $('#cta').innerHTML = cta;
+
+  // invite friends
+  if (s.referral_open) {
+    if (info.registered) {
+      const me = await api.myProfile().catch(() => null);
+      if (me) $('#invite').innerHTML = IMF.inviteCard(me, s);
+    } else if (open) {
+      $('#invite').innerHTML = `<div class="card stack center">
+        <h3>ชวนเพื่อน รับแต้ม</h3>
+        <div class="muted">ลงทะเบียนแล้วรับ<b>รหัสชวนเพื่อน</b>ของตัวเอง เพื่อนใช้รหัสตอนลงทะเบียน ได้แต้มทั้งคู่ สะสมไว้แลกของรางวัลในวันงาน</div>
+        <a class="btn ghost small" href="rewards.html" style="align-self:center">ดูของรางวัล</a></div>`;
+    }
+  }
+
+  try {
+    const anns = await api.announcements();
+    if (anns.length) $('#anns').innerHTML = `<div class="card stack"><h3>ประกาศ</h3>${anns.map(a => `<div class="ann">
+      <div class="small dim">${a.pinned ? '📌 ' : ''}${IMF.dateTH(a.created_at)}</div><h3>${esc(a.title)}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}</div>`).join('')}</div>`;
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
