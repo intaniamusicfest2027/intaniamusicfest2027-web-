@@ -38,6 +38,7 @@
       </div>
       <div id="cta" class="stack"><div class="spinner"></div></div>
       <div id="invite"></div>
+      <div id="board"></div>
       <div id="anns" class="stack"></div>
       <div class="hashtag">#IntaniaMusicFest2027</div>
     </div>
@@ -80,10 +81,21 @@
       if (me) $('#invite').innerHTML = IMF.inviteCard(me, s);
     } else if (open) {
       $('#invite').innerHTML = `<div class="card stack center">
-        <h3>ชวนเพื่อน รับแต้ม</h3>
-        <div class="muted">ลงทะเบียนแล้วรับ<b>รหัสชวนเพื่อน</b>ของตัวเอง เพื่อนใช้รหัสตอนลงทะเบียน ได้แต้มทั้งคู่ สะสมไว้แลกของรางวัลในวันงาน</div>
-        <a class="btn ghost small" href="rewards.html" style="align-self:center">ดูของรางวัล</a></div>`;
+        <h3>ชวนเพื่อน รับ Point</h3>
+        <div class="muted">ลงทะเบียนแล้วรับ<b>รหัสชวนเพื่อน</b>ของตัวเอง เพื่อนใช้รหัสตอนลงทะเบียน ได้ Point ทั้งคู่ สะสมไว้แลกของรางวัลในวันงาน</div>
+        ${s.rewards_open ? '<a class="btn ghost small" href="rewards.html" style="align-self:center">ดูของรางวัล</a>' : ''}</div>`;
     }
+  }
+
+  // group ranking (only while the campaign page is open)
+  if (s.leaderboard_open) {
+    try {
+      const rows = (await IMF.rpc('group_leaderboard')).slice(0, 5);
+      const max = Math.max(1, ...rows.map(r => Number(r.registered)));
+      $('#board').innerHTML = `<div class="card"><div class="card-title"><h3>อันดับกรุ๊ป</h3><a class="small muted" href="leaderboard.html">ดูทั้งหมด →</a></div>
+        <ul class="list">${rows.map((r, i) => { const n = Number(r.registered); return `<li><div class="rank ${i < 3 && n ? 'top' : ''}">${i + 1}</div>
+          <div class="gbar"><i style="width:${n ? Math.max(18, n / max * 100) : 0}%"></i><span>${esc(r.group_code)}</span></div><div class="gval">${fmt(n)} คน</div></li>`; }).join('')}</ul></div>`;
+    } catch (e) {}
   }
 
   try {

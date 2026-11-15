@@ -21,7 +21,7 @@
   const CATEGORY = { eng: 'นิสิตวิศวะ', chula_student: 'นิสิตจุฬาฯ', chula_staff: 'บุคลากรจุฬาฯ', external: 'บุคคลทั่วไป' };
   const YEAR = { '1': 'ปี 1', '2': 'ปี 2', '3': 'ปี 3', '4': 'ปี 4', '5+': 'ปี 5 ขึ้นไป' };
   const GENDER = { male: 'ชาย', female: 'หญิง', other: 'LGBTQ+', na: 'ไม่ระบุ' };
-  const REASON = { referral: 'เพื่อนลงทะเบียนด้วยรหัสของคุณ', signup_bonus: 'ใช้รหัสเพื่อนตอนลงทะเบียน', redeem: 'แลกของรางวัล', adjust: 'ปรับแต้มโดยทีมงาน', activity: 'ร่วมกิจกรรม' };
+  const REASON = { referral: 'เพื่อนลงทะเบียนด้วยรหัสของคุณ', signup_bonus: 'ใช้รหัสเพื่อนตอนลงทะเบียน', redeem: 'แลกของรางวัล', adjust: 'ปรับ Point โดยทีมงาน', activity: 'ร่วมกิจกรรม' };
 
   const ERRORS = {
     NOT_LOGGED_IN: 'กรุณาเข้าสู่ระบบก่อน',
@@ -39,11 +39,11 @@
     NOT_STAFF: 'บัญชีนี้ไม่ใช่ทีมงาน',
     NOT_ADMIN: 'บัญชีนี้ไม่ใช่แอดมิน',
     NOT_FOUND: 'ไม่พบผู้ลงทะเบียน',
-    REDEEM_CLOSED: 'ยังไม่เปิดระบบแลกแต้ม',
+    REDEEM_CLOSED: 'ยังไม่เปิดระบบแลก Point',
     BAD_REWARD: 'ของรางวัลนี้ปิดอยู่',
     BAD_ACTIVITY: 'กิจกรรมนี้ปิดอยู่',
-    ALREADY_AWARDED: 'คนนี้รับแต้มกิจกรรมนี้ไปแล้ว',
-    NOT_ENOUGH_POINTS: 'แต้มไม่พอ',
+    ALREADY_AWARDED: 'คนนี้รับ Point กิจกรรมนี้ไปแล้ว',
+    NOT_ENOUGH_POINTS: 'Point ไม่พอ',
     OUT_OF_STOCK: 'ของรางวัลหมดแล้ว',
     USER_NOT_FOUND: 'ไม่พบบัญชีนี้ ให้เจ้าของอีเมลเข้าสู่ระบบเว็บนี้อย่างน้อย 1 ครั้งก่อน',
     CANNOT_REMOVE_SELF: 'ลบตัวเองไม่ได้',
@@ -51,7 +51,9 @@
     BAD_ROLE: 'สิทธิ์ไม่ถูกต้อง',
     OWNER_ONLY: 'เฉพาะ Owner เท่านั้นที่จัดการแอดมินได้',
     BAD_STUDENT_ID: 'รหัสนิสิตต้องเป็นตัวเลข 10 หลัก',
-    BAD_YEAR: 'ชั้นปีไม่ถูกต้อง'
+    BAD_YEAR: 'ชั้นปีไม่ถูกต้อง',
+    BAD_CATEGORY: 'ประเภทไม่ถูกต้อง',
+    QR_EXPIRED: 'QR หมดอายุ ให้ผู้ร่วมงานเปิดหน้าบัตรใหม่แล้วสแกนอีกครั้ง'
   };
   function errMsg(e) {
     const m = String((e && (e.message || e.code)) || e || '');
@@ -94,7 +96,7 @@
       profiles.forEach((p, i) => { if (i > 20 && Math.random() < .5) { const r = profiles[Math.floor(Math.pow(Math.random(), 2.2) * 60)]; if (r !== p) { p.referred_by = r.id; const pts = r.category === 'eng' ? 2 : 1; r.points += pts; p.points += 1; ledger.push({ user_id: r.id, delta: pts, reason: 'referral', related_user: p.id, created_at: p.created_at }, { user_id: p.id, delta: 1, reason: 'signup_bonus', related_user: r.id, created_at: p.created_at }); } } });
       return {
         user: null,
-        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, leaderboard_open: true, ticket_open: true, redeem_open: true, target: 12000 },
+        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, leaderboard_open: true, rewards_open: true, ticket_open: true, redeem_open: true, target: 12000 },
         profiles, ledger, staff: [],
         rewards: [{ id: 1, name: 'สติกเกอร์', description: 'สติกเกอร์ลายโลโก้งาน', cost: 1, stock: 500, active: true, sort: 1, image: null }, { id: 2, name: 'ริสแบนด์', description: '', cost: 3, stock: 200, active: true, sort: 2, image: null }, { id: 3, name: 'เสื้อยืด', description: 'ไซซ์ S–XL', cost: 10, stock: 0, active: true, sort: 3, image: null }],
         activities: [{ id: 1, name: 'ถ่ายรูปที่ Photo booth', points: 2, active: true }, { id: 2, name: 'เล่นเกมบูธสปอนเซอร์', points: 1, active: true }],
@@ -149,15 +151,16 @@
         save(); return { ref_code: row.ref_code };
       },
       update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!p.nickname) fail('BAD_NICKNAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); Object.assign(m, { phone, nickname: p.nickname, first_name: p.first_name, last_name: p.last_name }); save(); return null; },
-      admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null }); save(); return null; },
+      admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null, category: p.category || r.category }); if (/^\d+$/.test(p.points || '') && +p.points !== r.points) { db.ledger.push({ user_id: uid, delta: +p.points - r.points, reason: 'adjust', note: 'แก้ไขโดยแอดมิน', created_at: new Date().toISOString() }); r.points = +p.points; } save(); return null; },
+      my_qr() { const m = me(); const w = Math.floor(Date.now() / 180000); return { code: 'IMF27:' + m.qr_token + ':' + w + ':demo', expires_in: Math.ceil((w + 1) * 180 - Date.now() / 1000) }; },
       my_points_history() { const m = me(); return db.ledger.filter(l => l.user_id === m.id).slice().reverse().map(l => ({ created_at: l.created_at, delta: l.delta, reason: l.reason, detail: detail(l) })); },
       group_leaderboard() {
         if (!db.settings.leaderboard_open) return GROUPS.map(c => ({ group_code: c, registered: db.profiles.filter(p => p.group_code === c).length })).sort((a, b) => b.registered - a.registered); // demo user is admin
         return GROUPS.map(c => ({ group_code: c, registered: db.profiles.filter(p => p.group_code === c).length })).sort((a, b) => b.registered - a.registered);
       },
       staff_lookup({ q }) {
-        const s = String(q || '').trim().replace(/^IMF27:/, '');
-        const by_token = /^[0-9a-f-]{36}$/i.test(s);
+        let s = String(q || '').trim(); const by_token = s.startsWith('IMF27:');
+        if (by_token) { const parts = s.slice(6).split(':'); if (parts.length !== 3 || Math.floor(Date.now() / 180000) - +parts[1] > 1) fail('QR_EXPIRED'); s = parts[0]; }
         const r = by_token ? db.profiles.find(p => p.qr_token === s) : db.profiles.find(p => p.ref_code === s.toUpperCase() || p.student_id === s || p.email === s.toLowerCase());
         if (!r) fail('NOT_FOUND');
         return { id: r.id, by_token, name: full(r), nickname: r.nickname, gender: r.gender, category: r.category, student_id: r.student_id, year: r.year, faculty: r.faculty, group_code: r.group_code, points: r.points, checked_in_at: r.checked_in_at };
@@ -211,7 +214,7 @@
     };
     return {
       rpc: async (name, args) => { await new Promise(r => setTimeout(r, 80)); return rpc[name](args || {}); },
-      db, save, me,
+      db, save, me, FAC,
       login(email) { db.user = { email: email || '6830000021@student.chula.ac.th' }; save(); },
       logout() { db.user = null; save(); },
       reset() { localStorage.removeItem(KEY); }
@@ -297,6 +300,10 @@
       if (DEMO) { demo.db.announcements = demo.db.announcements.filter(x => x.id !== id); demo.save(); return; }
       await q(sb.from('announcements').delete().eq('id', id));
     },
+    async faculties() {
+      if (DEMO) return Object.values(demo.FAC);
+      return (await q(sb.from('faculties').select('name').order('code'))).map(r => r.name);
+    },
     async staffList() {
       if (DEMO) return demo.db.staff.slice();
       return q(sb.from('staff').select('*').order('added_at'));
@@ -346,7 +353,8 @@
   async function boot(opts = {}) {
     const [info, settings] = await Promise.all([api.info(), api.settings().catch(() => ({}))]);
     const page = location.pathname.split('/').pop() || 'index.html';
-    const nav = [['index.html', 'หน้าหลัก'], info.registered ? ['me.html', 'บัตรของฉัน'] : ['register.html', 'ลงทะเบียน'], ['rewards.html', 'ของรางวัล']];
+    const nav = [['index.html', 'หน้าหลัก'], info.registered ? ['me.html', 'บัตรของฉัน'] : ['register.html', 'ลงทะเบียน']];
+    if (settings.rewards_open || info.is_admin) nav.push(['rewards.html', 'ของรางวัล']);
     if (settings.leaderboard_open) nav.push(['leaderboard.html', 'อันดับกรุ๊ป']);
     nav.push(['contact.html', 'ติดตาม']);
     if (info.is_staff) nav.push(['staff.html', 'สแกน']);
@@ -409,10 +417,10 @@
   function inviteCard(me, s) {
     const mine = invitePoints(s, me.category), bonus = +s.points_signup_bonus || 0;
     return `<div class="card white stack">
-      <div class="card-title" style="margin:0"><h3>ชวนเพื่อน รับแต้ม</h3></div>
+      <div class="card-title" style="margin:0"><h3>ชวนเพื่อน รับ Point</h3></div>
       <div class="code-box"><b>${esc(me.ref_code)}</b><button class="btn dark small" data-copy="${esc(me.ref_code)}">คัดลอก</button></div>
       <div class="grid-2"><button class="btn red block" data-share="${esc(me.ref_code)}">ส่งลิงก์ชวนเพื่อน</button><button class="btn dark block" data-copy="${esc(inviteUrl(me.ref_code))}">คัดลอกลิงก์</button></div>
-      <div class="small muted">เพื่อนลงทะเบียนด้วยรหัสนี้ 1 คน คุณได้ <b>${fmt(mine)} แต้ม</b>${bonus ? ` และเพื่อนได้ <b>${fmt(bonus)} แต้ม</b>` : ''} · สะสมไว้<a href="rewards.html">แลกของรางวัล</a>ในวันงาน</div>
+      <div class="small muted">เพื่อนลงทะเบียนด้วยรหัสนี้ 1 คน คุณได้ <b>${fmt(mine)} Point</b>${bonus ? ` และเพื่อนได้ <b>${fmt(bonus)} Point</b>` : ''}${s.rewards_open ? ' · สะสมไว้<a href="rewards.html">แลกของรางวัล</a>ในวันงาน' : ''}</div>
     </div>`;
   }
   document.addEventListener('click', e => {

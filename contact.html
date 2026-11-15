@@ -19,14 +19,14 @@
   const { $, esc, EVENT } = IMF;
   await IMF.boot();
   const ch = [
-    ['IG', 'Instagram', '@' + EVENT.ig, 'https://www.instagram.com/' + EVENT.ig + '/'],
-    ['TT', 'TikTok', '@' + EVENT.tiktok, 'https://www.tiktok.com/@' + EVENT.tiktok]
+    ['IG', 'Instagram', '@' + EVENT.ig, 'https://www.instagram.com/' + EVENT.ig + '/', 'assets/ig-logo.png'],
+    ['TT', 'TikTok', '@' + EVENT.tiktok, 'https://www.tiktok.com/@' + EVENT.tiktok, 'assets/tiktok-logo.png']
   ];
   $('#root').innerHTML = `<h1 class="page-title">ติดตามข่าวสาร</h1>
     <p class="muted center" style="margin:0">อัปเดตข่าวสาร กิจกรรม และสอบถามเรื่องต่าง ๆ ได้ที่ช่องทางของงาน</p>
-    ${ch.map(([ic, name, handle, url]) => `<a class="card follow" href="${esc(url)}" target="_blank" rel="noopener">
-      <span class="ic">${ic}</span><span style="flex:1"><b>${name}</b><span class="muted">${esc(handle)}</span></span><span aria-hidden="true" style="font-size:22px">→</span></a>`).join('')}
-    <div class="card small muted center">มีคำถามเรื่องการลงทะเบียน แต้ม หรือของรางวัล ส่งข้อความ (DM) หาทีมงานทาง Instagram ได้เลย</div>
+    ${ch.map(([ic, name, handle, url, logo]) => `<a class="card follow" href="${esc(url)}" target="_blank" rel="noopener">
+      <span class="ic"><img src="${logo}" alt="${name}" onerror="this.replaceWith('${ic}')"></span><span style="flex:1"><b>${name}</b><span class="muted">${esc(handle)}</span></span><span aria-hidden="true" style="font-size:22px">→</span></a>`).join('')}
+    <div class="card small muted center">มีคำถามเรื่องการลงทะเบียน Point หรือของรางวัล ส่งข้อความ (DM) หาทีมงานทาง Instagram ได้เลย</div>
     <div class="hashtag">${esc(EVENT.hashtag)}</div>`;
 })();
 </script>

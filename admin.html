@@ -95,7 +95,7 @@
         <div class="stat"><div class="v">${fmt(s.total)}</div><div class="l">ลงทะเบียนทั้งหมด</div></div>
         <div class="stat"><div class="v">${fmt(s.checked_in)}</div><div class="l">เข้างานแล้ว (${s.total ? Math.round(s.checked_in / s.total * 100) : 0}%)</div></div>
         <div class="stat"><div class="v">${fmt(s.referred)}</div><div class="l">มาจากเพื่อนชวน</div></div>
-        <div class="stat"><div class="v">${fmt(s.points_redeemed)}<small class="dim" style="font-size:18px"> / ${fmt(s.points_out)}</small></div><div class="l">แต้มที่แลกแล้ว / แจกไป</div></div>
+        <div class="stat"><div class="v">${fmt(s.points_redeemed)}<small class="dim" style="font-size:18px"> / ${fmt(s.points_out)}</small></div><div class="l">Point ที่แลกแล้ว / แจกไป</div></div>
       </div>
       <div class="grid-2" style="margin-top:14px">
         <div class="card"><div class="card-title"><h3>เป้าหมาย ${fmt(s.target)} คน</h3></div>
@@ -164,7 +164,7 @@
       const total = rows[0] ? Number(rows[0].total_count) : 0;
       $('#pinfo').textContent = total ? `${page * PAGE + 1}–${page * PAGE + rows.length} จาก ${fmt(total)}` : 'ไม่พบข้อมูล';
       $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * PAGE >= total;
-      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ชั้นปี</th><th>คณะ</th><th>เบอร์</th><th>รหัสชวน</th><th style="text-align:right">ชวน</th><th style="text-align:right">แต้ม</th><th></th></tr></thead><tbody>
+      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ชั้นปี</th><th>คณะ</th><th>เบอร์</th><th>รหัสชวน</th><th style="text-align:right">ชวน</th><th style="text-align:right">Point</th><th></th></tr></thead><tbody>
         ${rows.map(r => `<tr>
           <td style="text-align:center">${r.checked_in_at ? '<b style="color:var(--ok)" title="เข้างานแล้ว">✓</b>' : '<span class="dim">–</span>'}</td>
           <td class="mono">${esc(r.student_id || '–')}</td>
@@ -195,27 +195,30 @@
         ${row('ลงทะเบียนเมื่อ', IMF.dateTH(p.created_at))}${row('เข้างาน', p.checked_in_at ? '✓ ' + IMF.dateTH(p.checked_in_at) : 'ยังไม่เข้า')}
         ${row('รหัสชวนของตัวเอง', p.ref_code)}${row('ถูกชวนโดย', d.referrer ? d.referrer.name + ' (' + d.referrer.ref_code + ')' : null)}
       </div>
-      <div class="row" style="justify-content:space-between"><h3>แต้ม: <span style="color:var(--red-ink)">${fmt(p.points)}</span></h3><button class="btn ghost small" id="adj">± ปรับแต้ม</button></div>
-      ${d.ledger.length ? `<ul class="list small">${d.ledger.map(l => `<li><div style="flex:1"><b>${esc(REASON[l.reason] || l.reason)}</b>${l.detail ? ` <span class="muted">· ${esc(l.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(l.created_at)}</div></div><b style="color:${l.delta > 0 ? '#0f9d58' : '#b3261e'}">${l.delta > 0 ? '+' : ''}${l.delta}</b></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่มีประวัติแต้ม</div>'}
+      <div class="row" style="justify-content:space-between"><h3>Point: <span style="color:var(--red-ink)">${fmt(p.points)}</span></h3><button class="btn ghost small" id="adj">± ปรับ Point</button></div>
+      ${d.ledger.length ? `<ul class="list small">${d.ledger.map(l => `<li><div style="flex:1"><b>${esc(REASON[l.reason] || l.reason)}</b>${l.detail ? ` <span class="muted">· ${esc(l.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(l.created_at)}</div></div><b style="color:${l.delta > 0 ? '#0f9d58' : '#b3261e'}">${l.delta > 0 ? '+' : ''}${l.delta}</b></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่มีประวัติ Point</div>'}
       <h3>เพื่อนที่ชวนมา (${d.invited.length})</h3>
       ${d.invited.length ? `<ul class="list small">${d.invited.map(f => `<li><div style="flex:1">${esc(f.name)} <span class="dim">${esc(f.student_id || '')}</span></div><span class="dim">${IMF.dateTH(f.created_at)}</span></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่ได้ชวนใคร</div>'}
       <button class="btn danger block" id="del">ลบคนนี้ออกจากระบบ</button>
     </div>`, { lg: true });
     $('#edit', m.el).onclick = () => { m.close(); editModal(uid, p); };
     $('#adj', m.el).onclick = async () => {
-      const v = prompt(`ปรับแต้มของ ${p.first_name} (ใส่ตัวเลข เช่น 5 หรือ -2)`); if (!v || isNaN(parseInt(v, 10))) return;
-      const note = prompt('เหตุผล / ชื่อกิจกรรม (จะแสดงในประวัติแต้มของเขา)') || '';
-      try { await rpc('admin_adjust_points', { uid, delta: parseInt(v, 10), note }); IMF.toast('ปรับแต้มแล้ว'); m.close(); personModal(uid); people(); }
+      const v = prompt(`ปรับ Point ของ ${p.first_name} (ใส่ตัวเลข เช่น 5 หรือ -2)`); if (!v || isNaN(parseInt(v, 10))) return;
+      const note = prompt('เหตุผล / ชื่อกิจกรรม (จะแสดงในประวัติ Point ของเขา)') || '';
+      try { await rpc('admin_adjust_points', { uid, delta: parseInt(v, 10), note }); IMF.toast('ปรับ Point แล้ว'); m.close(); personModal(uid); people(); }
       catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
     $('#del', m.el).onclick = async () => {
-      if (!confirm(`ลบ ${p.first_name} ${p.last_name} ออกจากระบบ?\n\nข้อมูลลงทะเบียน แต้ม และประวัติทั้งหมดของคนนี้จะหายถาวร เขาต้องเข้าสู่ระบบและลงทะเบียนใหม่`)) return;
+      if (!confirm(`ลบ ${p.first_name} ${p.last_name} ออกจากระบบ?\n\nข้อมูลลงทะเบียน Point และประวัติทั้งหมดของคนนี้จะหายถาวร เขาต้องเข้าสู่ระบบและลงทะเบียนใหม่`)) return;
       try { await rpc('admin_delete_person', { uid }); IMF.toast('ลบแล้ว'); m.close(); people(); }
       catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
 
-  function editModal(uid, p) {
+  let FACS = null;
+  async function editModal(uid, p) {
+    if (!FACS) FACS = await api.faculties().catch(() => []);
+    const facs = FACS.slice(); if (p.faculty && !facs.includes(p.faculty)) facs.push(p.faculty);
     const opt = (v, l, cur) => `<option value="${esc(v)}" ${String(cur || '') === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
     const m = IMF.modal(`<form class="stack" id="ef">
       <h2>แก้ไขข้อมูล</h2>
@@ -227,14 +230,16 @@
         <label class="f"><span>กรุ๊ป</span><select class="input" name="group_code">${opt('', '–', p.group_code)}${GROUPS.map(g => opt(g, g, p.group_code)).join('')}</select></label></div>
       <div class="grid-2"><label class="f"><span>รหัสนิสิต</span><input class="input" name="student_id" inputmode="numeric" maxlength="10" value="${esc(p.student_id || '')}"></label>
         <label class="f"><span>ชั้นปี</span><select class="input" name="year">${opt('', '–', p.year)}${Object.keys(YEAR).map(k => opt(k, YEAR[k], p.year)).join('')}</select></label></div>
-      <label class="f"><span>คณะ</span><input class="input" name="faculty" value="${esc(p.faculty || '')}"></label>
-      <div class="hint" style="color:#8a6a6d">อีเมลและประเภทผู้ลงทะเบียนแก้ไม่ได้ เพราะผูกกับบัญชีที่ใช้เข้าสู่ระบบ</div>
+      <label class="f"><span>คณะ</span><select class="input" name="faculty">${opt('', '– (ไม่ใช่นิสิต)', p.faculty)}${facs.map(n => opt(n, n, p.faculty)).join('')}</select></label>
+      <div class="grid-2"><label class="f"><span>ประเภท</span><select class="input" name="category">${Object.keys(CATEGORY).map(k => opt(k, CATEGORY[k], p.category)).join('')}</select></label>
+        <label class="f"><span>Point</span><input class="input" name="points" type="number" min="0" value="${p.points}"></label></div>
+      <div class="hint" style="color:#8a6a6d">อีเมลแก้ไม่ได้ เพราะผูกกับบัญชีที่ใช้เข้าสู่ระบบ · การแก้ Point จะถูกบันทึกในประวัติของคนนั้น</div>
       <div class="grid-2"><button type="button" class="btn ghost block" data-close>ยกเลิก</button><button class="btn red block">บันทึก</button></div>
     </form>`, { lg: true, onClose: () => personModal(uid) });
     $('#ef', m.el).onsubmit = async e => {
       e.preventDefault(); const f = e.target, v = n => f[n].value.trim();
       try {
-        await rpc('admin_update_person', { uid, p: { first_name: v('first_name'), last_name: v('last_name'), nickname: v('nickname'), phone: v('phone'), gender: v('gender'), group_code: v('group_code'), student_id: v('student_id'), year: v('year'), faculty: v('faculty') } });
+        await rpc('admin_update_person', { uid, p: { first_name: v('first_name'), last_name: v('last_name'), nickname: v('nickname'), phone: v('phone'), gender: v('gender'), group_code: v('group_code'), student_id: v('student_id'), year: v('year'), faculty: v('faculty'), category: v('category'), points: v('points') } });
         IMF.toast('บันทึกแล้ว'); m.close(); people();
       } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
@@ -243,7 +248,7 @@
   async function exportCsv() {
     IMF.toast('กำลังเตรียมไฟล์…');
     const COLS = [['checked_in_at', 'เข้างาน'], ['student_id', 'รหัสนิสิต'], ['first_name', 'ชื่อ'], ['last_name', 'นามสกุล'], ['nickname', 'ชื่อเล่น'], ['gender', 'เพศ'], ['year', 'ชั้นปี'], ['faculty', 'คณะ'],
-      ['group_code', 'กรุ๊ป'], ['category', 'ประเภท'], ['phone', 'เบอร์'], ['email', 'อีเมล'], ['ref_code', 'รหัสชวน'], ['referrer_code', 'รหัสเพื่อนที่ใช้'], ['friends', 'จำนวนชวน'], ['points', 'แต้ม'], ['round', 'รอบ'], ['created_at', 'ลงทะเบียนเมื่อ']];
+      ['group_code', 'กรุ๊ป'], ['category', 'ประเภท'], ['phone', 'เบอร์'], ['email', 'อีเมล'], ['ref_code', 'รหัสชวน'], ['referrer_code', 'รหัสเพื่อนที่ใช้'], ['friends', 'จำนวนชวน'], ['points', 'Point'], ['round', 'รอบ'], ['created_at', 'ลงทะเบียนเมื่อ']];
     try {
       const rows = await rpc('admin_list', { q: '', lim: 20000, off: 0 });
       const cell = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
@@ -269,14 +274,15 @@
     ['general_round_open', 'bool', 'เปิดรอบทั่วไป', 'เปิดแล้วทุกประเภทลงทะเบียนได้ (มีผลเหนือรอบวิศวะ)'],
     ['allow_external', 'bool', 'รับบุคคลภายนอกจุฬาฯ', 'ใช้ในรอบทั่วไป ถ้าปิด = เฉพาะอีเมลจุฬาฯ'],
     ['แคมเปญ'],
-    ['referral_open', 'bool', 'เปิดชวนเพื่อน', 'ปิดแล้วรหัสชวนจะไม่แสดงและกรอกตอนลงทะเบียนไม่ได้ แต้มเดิมยังอยู่'],
-    ['points_per_referral_eng', 'num', 'แต้มของคนชวน (นิสิตวิศวะ)', 'ต่อเพื่อน 1 คน'],
-    ['points_per_referral', 'num', 'แต้มของคนชวน (คนอื่น ๆ)', 'ต่อเพื่อน 1 คน'],
-    ['points_signup_bonus', 'num', 'แต้มของคนที่ถูกชวน', 'ได้ตอนลงทะเบียนด้วยรหัสเพื่อน'],
-    ['leaderboard_open', 'bool', 'เปิดหน้าอันดับกรุ๊ป', 'ปิดแล้วเมนูจะหายและคนทั่วไปดูไม่ได้'],
+    ['referral_open', 'bool', 'เปิดชวนเพื่อน', 'ปิดแล้วรหัสชวนจะไม่แสดงและกรอกตอนลงทะเบียนไม่ได้ Point เดิมยังอยู่'],
+    ['points_per_referral_eng', 'num', 'Point ของคนชวน (นิสิตวิศวะ)', 'ต่อเพื่อน 1 คน'],
+    ['points_per_referral', 'num', 'Point ของคนชวน (คนอื่น ๆ)', 'ต่อเพื่อน 1 คน'],
+    ['points_signup_bonus', 'num', 'Point ของคนที่ถูกชวน', 'ได้ตอนลงทะเบียนด้วยรหัสเพื่อน'],
+    ['leaderboard_open', 'bool', 'เปิดหน้าอันดับกรุ๊ป', 'แสดงทั้งในเมนูและหน้าหลัก ปิดแล้วคนทั่วไปดูไม่ได้'],
+    ['rewards_open', 'bool', 'เปิดหน้าของรางวัล', 'ปิดแล้วเมนูของรางวัลจะหาย แต่ทุกคนยังเห็น Point ของตัวเองตามปกติ'],
     ['วันงาน'],
     ['ticket_open', 'bool', 'แสดง QR ในบัตร', 'ให้ผู้ลงทะเบียนเห็น QR สำหรับสแกนเข้างาน'],
-    ['redeem_open', 'bool', 'เปิดระบบแลกแต้ม', 'ให้ทีมงานสแกนแลกของรางวัลได้'],
+    ['redeem_open', 'bool', 'เปิดระบบแลก Point', 'ให้ทีมงานสแกนแลกของรางวัลได้'],
     ['target', 'num', 'เป้าหมายจำนวนคน', 'ใช้ในกราฟหน้าภาพรวม']
   ];
   async function settingsTab() {
@@ -330,13 +336,13 @@
         <td><label class="switch"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}><i></i></label></td>
         <td><button class="btn small">${a.id ? 'บันทึก' : 'เพิ่ม'}</button></td></tr>`;
     el.innerHTML = `<div class="card tscroll"><div class="card-title"><h3>ของรางวัล</h3><a class="small muted" href="rewards.html" target="_blank">ดูหน้าของรางวัล ↗</a></div>
-      <table class="t"><thead><tr><th>รูป</th><th>ชื่อ / รายละเอียด</th><th>ใช้แต้ม</th><th>คงเหลือ</th><th>ลำดับ</th><th>แสดง</th><th></th></tr></thead><tbody>
+      <table class="t"><thead><tr><th>รูป</th><th>ชื่อ / รายละเอียด</th><th>ใช้ Point</th><th>คงเหลือ</th><th>ลำดับ</th><th>แสดง</th><th></th></tr></thead><tbody>
       ${list.concat([{ id: null, name: '', description: '', cost: 1, stock: null, sort: 0, active: true, image: null }]).map(rrow).join('')}</tbody></table>
       <div class="hint">ลบของรางวัลไม่ได้ (เพราะมีประวัติการแลก) ให้ปิดสวิตช์ "แสดง" แทน · รูปจะถูกย่อเป็นสี่เหลี่ยมจัตุรัสอัตโนมัติ</div></div>
-      <div class="card tscroll" style="margin-top:14px"><div class="card-title"><h3>กิจกรรมสะสมแต้ม</h3></div>
-      <table class="t"><thead><tr><th>กิจกรรม</th><th>ได้แต้ม</th><th>เปิด</th><th></th></tr></thead><tbody>
+      <div class="card tscroll" style="margin-top:14px"><div class="card-title"><h3>กิจกรรมสะสม Point</h3></div>
+      <table class="t"><thead><tr><th>กิจกรรม</th><th>ได้ Point</th><th>เปิด</th><th></th></tr></thead><tbody>
       ${acts.concat([{ id: null, name: '', points: 1, active: true }]).map(arow).join('')}</tbody></table>
-      <div class="hint">ทีมงานเลือกกิจกรรมในหน้าสแกน → โหมด "ให้แต้ม" แล้วสแกน QR ของผู้ร่วมงาน · แต่ละคนรับแต้มได้กิจกรรมละ 1 ครั้ง</div></div>`;
+      <div class="hint">ทีมงานเลือกกิจกรรมในหน้าสแกน → โหมด "ให้ Point" แล้วสแกน QR ของผู้ร่วมงาน · แต่ละคนรับ Point ได้กิจกรรมละ 1 ครั้ง</div></div>`;
     el.onclick = async e => {
       const pick = e.target.closest('[data-pick]');
       if (pick) { const url = await pickImage(); if (url) { images[pick.dataset.pick] = url; pick.style.backgroundImage = `url('${url}')`; pick.textContent = ''; } return; }
@@ -346,12 +352,12 @@
         if (tr.dataset.kind === 'reward') {
           const r = { name: g('name').value.trim(), description: g('description').value.trim() || null, cost: parseInt(g('cost').value, 10), stock: g('stock').value === '' ? null : parseInt(g('stock').value, 10),
             sort: parseInt(g('sort').value || '0', 10), active: g('active').checked, image: images[tr.dataset.id || 'new'] || null };
-          if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและแต้มให้ครบ', true);
+          if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและ Point ให้ครบ', true);
           if (tr.dataset.id) r.id = Number(tr.dataset.id);
           await api.rewards.save(r);
         } else {
           const a = { name: g('name').value.trim(), points: parseInt(g('points').value, 10), active: g('active').checked };
-          if (!a.name || !(a.points > 0)) return IMF.toast('กรอกชื่อกิจกรรมและแต้มให้ครบ', true);
+          if (!a.name || !(a.points > 0)) return IMF.toast('กรอกชื่อกิจกรรมและ Point ให้ครบ', true);
           if (tr.dataset.id) a.id = Number(tr.dataset.id);
           await api.activities.save(a);
         }

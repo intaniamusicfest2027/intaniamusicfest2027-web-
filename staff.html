@@ -37,10 +37,10 @@
     <div class="seg" id="mode">
       <button type="button" data-v="checkin" class="on">🎟️ เข้างาน</button>
       <button type="button" data-v="redeem">🎁 แลกของ</button>
-      <button type="button" data-v="award">⭐ ให้แต้ม</button>
+      <button type="button" data-v="award">⭐ ให้ Point</button>
     </div>
-    <label class="f hide" id="actbox"><span>กิจกรรมที่จะให้แต้ม</span>
-      <select class="input" id="act">${activities.map(a => `<option value="${a.id}">${esc(a.name)} (+${a.points} แต้ม)</option>`).join('') || '<option value="">ยังไม่มีกิจกรรม เพิ่มได้ที่หลังบ้าน</option>'}</select></label>
+    <label class="f hide" id="actbox"><span>กิจกรรมที่จะให้ Point</span>
+      <select class="input" id="act">${activities.map(a => `<option value="${a.id}">${esc(a.name)} (+${a.points} Point)</option>`).join('') || '<option value="">ยังไม่มีกิจกรรม เพิ่มได้ที่หลังบ้าน</option>'}</select></label>
     <div id="reader"></div>
     <button class="btn block" id="cam"><b>เปิดกล้อง</b>สแกน QR</button>
     <form id="manual" class="row" autocomplete="off">
@@ -63,14 +63,14 @@
     $$('#mode button').forEach(x => x.classList.toggle('on', x === b));
     mode = b.dataset.v;
     $('#actbox').classList.toggle('hide', mode !== 'award');
-    if (mode === 'redeem' && !settings.redeem_open) IMF.toast('ยังไม่เปิดระบบแลกแต้ม (เปิดที่หลังบ้าน → ตั้งค่า)', true);
+    if (mode === 'redeem' && !settings.redeem_open) IMF.toast('ยังไม่เปิดระบบแลก Point (เปิดที่หลังบ้าน → ตั้งค่า)', true);
   });
 
   const person = (p) => `<div style="font-size:26px;font-weight:800;line-height:1.2">${esc(p.name)}${p.nickname ? ` <span class="dim" style="font-weight:600">(${esc(p.nickname)})</span>` : ''}</div>
     <div class="kv">
       ${p.student_id ? `<div><small>รหัสนิสิต</small><b>${esc(p.student_id)}</b></div><div><small>ชั้นปี</small><b>${p.year ? esc(YEAR[p.year]) : '–'}</b></div><div class="full"><small>คณะ</small><b>${esc(p.faculty || '–')}${p.group_code ? ' · กรุ๊ป ' + esc(p.group_code) : ''}</b></div>`
         : `<div class="full"><small>ประเภท</small><b>${esc(CATEGORY[p.category])}</b></div>`}
-      <div><small>เพศ</small><b>${esc(GENDER[p.gender] || '–')}</b></div><div><small>แต้ม</small><b>${fmt(p.points)}</b></div>
+      <div><small>เพศ</small><b>${esc(GENDER[p.gender] || '–')}</b></div><div><small>Point</small><b>${fmt(p.points)}</b></div>
     </div>
     ${p.by_token ? '' : '<div class="chip warn" style="margin-top:10px;color:#9a5b00;border-color:#d98200;background:#fff6e5">ค้นหาด้วยการพิมพ์ ให้ตรวจบัตรนิสิต/บัตรประชาชนก่อน</div>'}`;
   const closeBtn = '<button class="btn ghost block" data-close>ปิด</button>';
@@ -119,21 +119,21 @@
 
   function popRedeem(p) {
     const el = show(`<div class="stack">${person(p)}
-      <div class="row" style="justify-content:space-between"><span class="muted">แต้มคงเหลือ</span><span class="points-big" style="font-size:56px;color:var(--red-ink)">${fmt(p.points)}</span></div>
+      <div class="row" style="justify-content:space-between"><span class="muted">Point คงเหลือ</span><span class="points-big" style="font-size:56px;color:var(--red-ink)">${fmt(p.points)}</span></div>
       <div class="stack" id="rw">${rewards.map(r => {
         const can = settings.redeem_open && p.points >= r.cost && (r.stock == null || r.stock > 0);
         return `<button class="btn ${can ? 'red' : 'ghost'} block" data-id="${r.id}" ${can ? '' : 'disabled'} style="justify-content:space-between">
-          <span>${esc(r.name)}${r.stock != null ? ` <small>(เหลือ ${fmt(r.stock)})</small>` : ''}</span><span>${fmt(r.cost)} แต้ม</span></button>`;
+          <span>${esc(r.name)}${r.stock != null ? ` <small>(เหลือ ${fmt(r.stock)})</small>` : ''}</span><span>${fmt(r.cost)} Point</span></button>`;
       }).join('') || '<div class="dim">ยังไม่มีของรางวัล เพิ่มได้ที่หลังบ้าน</div>'}</div>
-      ${settings.redeem_open ? '' : '<div class="errtext" style="color:#b3261e">ยังไม่เปิดระบบแลกแต้ม</div>'}${closeBtn}</div>`);
+      ${settings.redeem_open ? '' : '<div class="errtext" style="color:#b3261e">ยังไม่เปิดระบบแลก Point</div>'}${closeBtn}</div>`);
     $('#rw', el).onclick = async e => {
       const b = e.target.closest('button[data-id]'); if (!b) return;
       const rw = rewards.find(r => r.id == b.dataset.id);
-      if (!confirm(`แลก "${rw.name}" ใช้ ${rw.cost} แต้ม?`)) return;
+      if (!confirm(`แลก "${rw.name}" ใช้ ${rw.cost} Point?`)) return;
       b.disabled = true;
       try {
         const r = await rpc('staff_redeem', { uid: p.id, reward: rw.id });
-        beep(true); IMF.toast(`แลก ${r.reward} สำเร็จ เหลือ ${r.points} แต้ม`);
+        beep(true); IMF.toast(`แลก ${r.reward} สำเร็จ เหลือ ${r.points} Point`);
         addLog(`🎁 ${esc(p.name)} · ${esc(r.reward)} <span class="dim">${now()}</span>`);
         rewards = await api.rewards.list();
         p.points = r.points; popRedeem(p);
@@ -144,14 +144,14 @@
   function popAward(p) {
     const a = activities.find(x => x.id == $('#act').value);
     if (!a) { show(`<div class="stack"><div class="status bad">ยังไม่ได้เลือกกิจกรรม</div>${closeBtn}</div>`); return; }
-    const el = show(`<div class="stack"><div class="status info">${esc(a.name)}<small>+${a.points} แต้ม</small></div>${person(p)}
-      <button class="btn red big block" id="go">⭐ ให้ <b>+${a.points} แต้ม</b></button>${closeBtn}</div>`);
+    const el = show(`<div class="stack"><div class="status info">${esc(a.name)}<small>+${a.points} Point</small></div>${person(p)}
+      <button class="btn red big block" id="go">⭐ ให้ <b>+${a.points} Point</b></button>${closeBtn}</div>`);
     $('#go', el).onclick = async (e) => {
       e.target.disabled = true;
       try {
         const r = await rpc('staff_award', { uid: p.id, activity: a.id });
         beep(true); addLog(`⭐ ${esc(p.name)} · ${esc(r.activity)} +${r.added} <span class="dim">${now()}</span>`);
-        show(`<div class="stack"><div class="status ok">⭐ ให้แล้ว +${r.added} แต้ม<small>รวม ${fmt(r.points)} แต้ม</small></div>${closeBtn}</div>`);
+        show(`<div class="stack"><div class="status ok">⭐ ให้แล้ว +${r.added} Point<small>รวม ${fmt(r.points)} Point</small></div>${closeBtn}</div>`);
         const mine = open; setTimeout(() => { if (open === mine) mine.close(); }, 1800);
       } catch (ex) {
         beep(false);

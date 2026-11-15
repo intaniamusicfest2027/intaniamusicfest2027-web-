@@ -82,7 +82,7 @@
     </div>
     <div class="f"><span>เพศ</span><div class="seg" id="gender">${Object.keys(GENDER).map(k => `<button type="button" data-v="${k}">${GENDER[k]}</button>`).join('')}</div></div>
     ${cat === 'eng' ? `<div class="f"><span>กรุ๊ป</span><div class="seg groups" id="group">${GROUPS.map(g => `<button type="button" data-v="${g}">${g}</button>`).join('')}</div></div>` : ''}
-    ${settings.referral_open ? `<label class="f"><span>รหัสเพื่อน <i>(ถ้ามีเพื่อนชวนมา ได้แต้มทั้งคู่)</i></span><input class="input" name="ref_code" maxlength="6" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
+    ${settings.referral_open ? `<label class="f"><span>รหัสเพื่อน <i>(ถ้ามีเพื่อนชวนมา ได้ Point ทั้งคู่)</i></span><input class="input" name="ref_code" maxlength="6" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
     <label class="check"><input type="checkbox" name="consent">
       <span>ยินยอมให้ทีมงาน INTANIA MUSIC FEST เก็บและใช้ข้อมูลนี้เพื่อการลงทะเบียน การติดต่อ และการจัดงานครั้งนี้เท่านั้น</span></label>
     <div id="err" class="errtext"></div>
@@ -134,7 +134,7 @@
     root.innerHTML = `<div class="stack">
       <h1 class="page-title">ลงทะเบียนสำเร็จ 🎉</h1>
       <p class="muted center" style="margin:0">เจอกันนะ ${esc(name)}<br>28 มกราคม 2570 ที่ลานอินทาเนีย</p>
-      ${me && me.points ? `<div class="center"><span class="chip on">ได้รับ ${fmt(me.points)} แต้มจากรหัสเพื่อน</span></div>` : ''}
+      ${me && me.points ? `<div class="center"><span class="chip on">ได้รับ ${fmt(me.points)} Point จากรหัสเพื่อน</span></div>` : ''}
       ${me ? IMF.inviteCard(me, settings) : ''}
       <a class="btn big block" href="me.html">ไปที่<b>บัตรของฉัน</b></a>
     </div>`;
