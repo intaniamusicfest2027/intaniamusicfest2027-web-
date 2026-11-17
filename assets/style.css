@@ -535,3 +535,8 @@ html:has(body.has-tabs) { scroll-padding-bottom: 110px; }
 @media (max-width: 760px) { .fpanel.closed:not(:has(.fchip)) { display: none; } .fpanel.closed { padding: 10px 12px; } }
 .acols > div, .acols .card, .amain section, .amain .stack > * { min-width: 0; }
 @media (max-width: 760px) { .ahead .atabs { order: 5; flex: 0 0 calc(100% + 28px); } }
+html { background: #c9363a; }
+.tk-ok { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 14px; background: #17a557; color: #fff; }
+.tk-ok b { font-size: 20px; font-weight: 800; }
+.tk-ok span { font-size: 13px; opacity: .9; }
+.homelogo { margin-top: 34px; }

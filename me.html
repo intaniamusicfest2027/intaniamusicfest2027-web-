@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1a0305">
+<meta name="theme-color" content="#c9363a">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>บัตรเข้างาน · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
 <link rel="stylesheet" href="assets/style.css">
@@ -23,12 +24,11 @@
   const gate = (body) => `<div class="soon"><img class="soon-logo" src="${IMF.LOGO}" alt="INTANIA MUSIC FEST">${body}</div>`;
 
   if (!info.logged_in) {
-    root.innerHTML = gate(`<span class="sq-lock">${icon('lock', 30, 1.8)}</span><h2>เข้าสู่ระบบเพื่อรับบัตรเข้างาน</h2><div id="login" class="stack" style="width:100%"></div>`);
-    IMF.loginButtons($('#login'));
+    root.innerHTML = gate(`<span class="sq-lock">${icon('lock', 30, 1.8)}</span><h2>เข้าสู่ระบบเพื่อรับบัตรเข้างาน</h2><a class="btn red big block" href="register.html?next=me.html">ลงทะเบียน / เข้าสู่ระบบ</a>`);
     return;
   }
   if (!info.registered) {
-    root.innerHTML = gate(`<h2>ยังไม่ได้ลงทะเบียน</h2><a class="btn red big block" href="register.html">ลงทะเบียน</a>`);
+    root.innerHTML = gate(`<h2>ยังไม่ได้ลงทะเบียน</h2><a class="btn red big block" href="register.html?next=me.html">ลงทะเบียน</a>`);
     return;
   }
   if (!settings.ticket_open && !info.is_admin) {
@@ -49,14 +49,13 @@
   let qrTimer = null, tickTimer = null;
   function render(p) {
     clearTimeout(qrTimer); clearInterval(tickTimer);
-    const mid = p.checked_in_at
-      ? `<div class="tk-mid tk-in"><span class="okdisc">${icon('check', 72, 2.8)}</span><b>เข้างานแล้ว</b><span>สแกนเมื่อ ${timeTH(p.checked_in_at)}</span></div>`
-      : `<div class="tk-mid"><div class="qr" id="qr"><div class="spinner" style="border-color:#e6d8d9;border-top-color:#c8102e"></div></div>
+    // after check-in the QR stays: it's also used for activity points inside the event
+    const mid = `${p.checked_in_at ? `<div class="tk-ok">${icon('check', 22, 3)}<b>เข้างานแล้ว</b><span>${timeTH(p.checked_in_at)}</span></div>` : ''}<div class="tk-mid"><div class="qr" id="qr"><div class="spinner" style="border-color:#e6d8d9;border-top-color:#c8102e"></div></div>
           <div style="width:100%"><div class="tk-timer">${icon('clock', 16, 2)}<span id="qrnote">QR เปลี่ยนใหม่ทุก 3 นาที</span></div><div class="tk-bar" style="margin-top:6px"><i id="qrbar"></i></div></div></div>`;
     root.innerHTML = `<div class="center-v">${!settings.ticket_open ? '<div class="center" style="margin-bottom:10px"><span class="chip warn">หน้าบัตรปิดอยู่ · แอดมินเห็น</span></div>' : ''}
       <div class="tk"><div class="tk-h"><img src="${IMF.LOGO}" alt="INTANIA MUSIC FEST"><div><small>บัตรเข้างาน</small><b>28.01.2570 · 17:00</b></div></div>
       ${mid}<div class="tk-info">${info2(p)}</div></div></div>`;
-    if (!p.checked_in_at) startQR();
+    startQR();
   }
 
   // the QR is only valid for a few minutes: fetch a new one when it runs out and whenever the page comes back
