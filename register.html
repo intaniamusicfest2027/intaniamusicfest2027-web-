@@ -34,19 +34,18 @@
   if (info.logged_in && info.registered) { location.replace(next); return; }
 
   // ---------- step 1: sign in ----------
+  // eng round: CU student accounts only · general round: Chula only (Google/Gmail only when "บุคคลภายนอก" is on)
+  const allowGoogle = closed || (settings.general_round_open && settings.allow_external);
   if (!info.logged_in) {
-    root.innerHTML = `<div class="stack">
-      <h1 class="page-title">ลงทะเบียน</h1>
-      ${closed ? `<div class="card center">ตอนนี้ยังไม่เปิดลงทะเบียน<div class="muted small">ลงทะเบียนไว้แล้ว เข้าสู่ระบบได้เลย</div></div>
-      <div id="login" class="stack"></div>` : `
-      <p class="muted center" style="margin:0">${engOnly
-        ? 'รอบนี้สำหรับ<b style="color:#fff">นิสิตคณะวิศวกรรมศาสตร์</b><br>เข้าสู่ระบบด้วยบัญชี CU (รหัสนิสิต@student.chula.ac.th)'
-        : 'นิสิตจุฬาฯ เข้าสู่ระบบด้วยบัญชี CU<br>บุคคลทั่วไปใช้บัญชี Google'}</p>
-      ${savedRef ? `<div class="center"><span class="chip on">รหัสเพื่อน ${esc(savedRef)}</span></div>` : ''}
-      <div id="login" class="stack"></div>
-      `}
+    root.innerHTML = `<div class="soon">
+      <img class="soon-logo" src="${IMF.LOGO}" alt="INTANIA MUSIC FEST">
+      <h2>${closed ? 'เข้าสู่ระบบ' : 'ลงทะเบียน'}</h2>
+      ${closed ? '<div class="muted center">ยังไม่เปิดลงทะเบียน · ลงทะเบียนไว้แล้วเข้าสู่ระบบได้เลย</div>'
+        : `<div class="muted center">${engOnly ? 'รอบนิสิตคณะวิศวกรรมศาสตร์' : allowGoogle ? 'นิสิตและบุคลากรจุฬาฯ ใช้บัญชี CU · บุคคลภายนอกใช้ Google' : 'เฉพาะนิสิตและบุคลากรจุฬาฯ'}</div>`}
+      ${savedRef ? `<span class="chip on">โค้ดเพื่อน ${esc(savedRef)}</span>` : ''}
+      <div id="login" class="stack" style="width:100%"></div>
     </div>`;
-    if ($('#login')) IMF.loginButtons($('#login'), { cuOnly: engOnly });
+    IMF.loginButtons($('#login'), { cuOnly: !allowGoogle, cuHd: engOnly ? 'student.chula.ac.th' : null });
     return;
   }
 
@@ -57,10 +56,10 @@
   else if (engOnly && cat !== 'eng') blocked = cat === 'external'
     ? 'รอบนี้ต้องใช้อีเมลจุฬาฯ (@student.chula.ac.th) ของนิสิตวิศวะ ลองเปลี่ยนบัญชีแล้วเข้าสู่ระบบใหม่'
     : 'รอบนี้เปิดเฉพาะนิสิตวิศวะก่อน รอบสำหรับประชาคมจุฬาฯ จะเปิดเร็ว ๆ นี้';
-  else if (cat === 'external' && !settings.allow_external) blocked = 'รอบนี้เปิดเฉพาะนิสิตและบุคลากรจุฬาฯ กรุณาใช้อีเมลจุฬาฯ';
+  else if (cat === 'external' && !settings.allow_external) blocked = 'ตอนนี้เปิดเฉพาะนิสิตและบุคลากรจุฬาฯ (อีเมล @chula.ac.th หรือ @student.chula.ac.th) รอบบุคคลภายนอกจะเปิดทีหลัง';
   if (blocked) {
-    root.innerHTML = `<div class="stack"><h1 class="page-title">ยังลงทะเบียนไม่ได้</h1>
-      <div class="card">${esc(blocked)}<div class="hint">เข้าสู่ระบบอยู่ด้วย ${esc(info.email)}</div></div>
+    root.innerHTML = `<div class="soon"><img class="soon-logo" src="${IMF.LOGO}" alt="INTANIA MUSIC FEST"><h2>ยังลงทะเบียนไม่ได้</h2>
+      <div class="card" style="width:100%">${esc(blocked)}<div class="hint">เข้าสู่ระบบอยู่ด้วย ${esc(info.email)}</div></div>
       <button class="btn ghost block" id="switch">เปลี่ยนบัญชี</button></div>`;
     $('#switch').onclick = async () => { await api.signOut(); location.reload(); };
     return;

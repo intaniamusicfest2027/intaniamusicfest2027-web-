@@ -361,7 +361,7 @@
     const el = $('#t-settings');
     let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
     el.innerHTML = `<div class="stack"><h2 style="text-shadow:none">ตั้งค่า</h2><div class="acols">
-      <div>${sec('users', 'ลงทะเบียน', srow('รอบนิสิตวิศวฯ', toggle('eng_round_open', s.eng_round_open)) + srow('รอบทั่วไป', toggle('general_round_open', s.general_round_open)) + srow('บุคคลภายนอก', toggle('allow_external', s.allow_external)))}
+      <div>${sec('users', 'ลงทะเบียน', srow('รอบนิสิตวิศวฯ', toggle('eng_round_open', s.eng_round_open)) + srow('รอบทั่วไป', toggle('general_round_open', s.general_round_open)) + srow('รอบบุคคลภายนอก (Gmail)', toggle('allow_external', s.allow_external)))}
         ${sec('ticket', 'วันงาน', srow('สแกนแลกของรางวัล', toggle('redeem_open', s.redeem_open)) + srow('เป้าหมายจำนวนคน', `<input class="numin" type="number" min="0" data-k="target" value="${esc(s.target)}" style="width:110px">`))}</div>
       <div>${sec('home', 'เปิด / ปิดหน้า', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open)) + srow('ของรางวัล', toggle('rewards_open', s.rewards_open))
           + srow('บัตรเข้างาน', toggle('ticket_open', s.ticket_open))

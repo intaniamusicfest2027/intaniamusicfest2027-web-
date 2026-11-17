@@ -540,7 +540,7 @@
     el.onclick = async (e) => {
       const b = e.target.closest('[data-login]'); if (!b) return;
       b.disabled = true;
-      try { await api.signIn({ hd: b.dataset.login === 'cu' ? 'student.chula.ac.th' : undefined }); }
+      try { await api.signIn({ hd: b.dataset.login === 'cu' ? (opts.cuHd === undefined ? 'student.chula.ac.th' : (opts.cuHd || undefined)) : undefined }); }
       catch (ex) { toast(errMsg(ex), true); b.disabled = false; }
     };
   }
