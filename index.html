@@ -81,6 +81,7 @@
     ${s.referral_open ? IMF.inviteCard(me, friends) : ''}
   </div>`;
 
+  IMF.watchMe(me);
   $('#hist').onclick = () => IMF.modal(`<div class="stack"><div class="row" style="justify-content:space-between"><h2>ประวัติ Point</h2><button class="btn ghost small" data-close>ปิด</button></div>
     ${history.length ? `<ul class="list small">${history.map(h => `<li><div style="flex:1"><b>${esc(REASON[h.reason] || h.reason)}</b>${h.detail ? ` <span class="muted">· ${esc(h.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(h.created_at)}</div></div>
       <b style="color:${h.delta > 0 ? '#0f9d58' : '#b3261e'}">${h.delta > 0 ? '+' : ''}${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`);

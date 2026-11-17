@@ -33,8 +33,11 @@
   let activities = [];
   try { activities = await api.activities.list(); } catch (e) {}
   let open = null, busy = false, scanner = null, lastText = '', lastAt = 0;
+  let mode = localStorage.getItem('imf_staff_mode') === 'act' ? 'act' : 'entry';
 
   root.innerHTML = `<div class="ph"><h1>สแกน QR</h1><span class="staffbadge">STAFF</span></div><div class="stack" style="margin-top:0">
+    <div class="seg2" id="mode"><button type="button" data-m="entry">${IMF.icon('ticket', 20, 2)}เข้างาน</button><button type="button" data-m="act">${IMF.icon('star', 20, 2)}กิจกรรม</button></div>
+    <label class="f" id="actbox"><span>กิจกรรม</span><select class="input" id="act">${activities.map(a => `<option value="${a.id}">${esc(a.name)} (+${a.points} Point)</option>`).join('') || '<option value="">ยังไม่มีกิจกรรม เพิ่มได้ที่หลังบ้าน</option>'}</select></label>
     <div id="reader"></div>
     <button class="btn red block" id="cam">${IMF.icon('scan', 20, 2)}เปิดกล้อง</button>
     <form id="manual" class="row nowrap" autocomplete="off">
@@ -44,6 +47,13 @@
     <div class="card"><div class="card-title"><h3>ล่าสุด</h3><span class="small dim" id="count">0</span></div><ul class="list small" id="log"><li class="dim">ยังไม่มี</li></ul></div>
   </div>`;
 
+  function setMode(m) {
+    mode = m; localStorage.setItem('imf_staff_mode', m);
+    $$('#mode button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    $('#actbox').classList.toggle('hide', m !== 'act');
+  }
+  $('#mode').onclick = e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); };
+  setMode(mode);
   const log = [];
   const now = () => new Date().toLocaleTimeString('th-TH');
   function addLog(t) { log.unshift(t); $('#log').innerHTML = log.slice(0, 15).map(x => `<li>${x}</li>`).join(''); $('#count').textContent = log.length; }
@@ -74,7 +84,7 @@
     try {
       const p = await rpc('staff_lookup', { q: text });
       beep(true);
-      if (p.kind === 'redeem') popRedeem(p); else popPerson(p);
+      if (p.kind === 'redeem') popRedeem(p); else if (mode === 'act') popAward(p); else popCheckin(p);
     } catch (e) {
       beep(false);
       show(`<div class="stack"><div class="status bad">${esc(IMF.errMsg(e))}</div>${closeBtn}</div>`);
@@ -105,27 +115,32 @@
     };
   }
 
-  // ticket QR or a typed search: check in, and/or give activity points
-  function popPerson(p) {
-    const actSel = activities.length ? `<div class="stack" style="border-top:1px solid #e6d8d9;padding-top:14px"><b>ให้ Point กิจกรรม</b>
-      <div class="row nowrap"><select class="input" id="act" style="flex:1;min-width:0">${activities.map(a => `<option value="${a.id}">${esc(a.name)} (+${a.points})</option>`).join('')}</select>
-      <button class="btn small" id="give">ให้ Point</button></div></div>` : '';
+  // เข้างาน mode
+  function popCheckin(p) {
     const el = show(`<div class="stack">
       ${p.checked_in_at ? `<div class="status warn">เข้างานแล้ว<small>${IMF.dateTH(p.checked_in_at)}</small></div>` : '<div class="status info">ยังไม่ได้เข้างาน</div>'}
       ${person(p)}
       ${p.checked_in_at ? '' : `<button class="btn red big block" id="go">${IMF.icon('check', 22, 2.6)}ยืนยันเข้างาน</button>`}
-      ${actSel}${closeBtn}</div>`);
-    if ($('#go', el)) $('#go', el).onclick = async (e) => {
+      ${closeBtn}</div>`);
+    if (p.checked_in_at) { beep(false); return; }
+    $('#go', el).onclick = async (e) => {
       e.currentTarget.disabled = true;
       try {
         const r = await rpc('staff_checkin', { uid: p.id });
         beep(r.ok); addLog(`${r.ok ? '✅' : '⚠️'} ${esc(p.name)} <span class="dim">${now()}</span>`);
         show(`<div class="stack"><div class="status ${r.ok ? 'ok' : 'warn'}">${r.ok ? 'เข้างานเรียบร้อย' : 'เข้างานแล้ว'}<small>${IMF.dateTH(r.checked_in_at)}</small></div>${person(p)}${closeBtn}</div>`);
         if (r.ok) autoClose();
-      } catch (ex) { beep(false); IMF.toast(IMF.errMsg(ex), true); e.currentTarget.disabled = false; }
+      } catch (ex) { beep(false); IMF.toast(IMF.errMsg(ex), true); }
     };
-    if ($('#give', el)) $('#give', el).onclick = async (e) => {
-      const a = activities.find(x => x.id == $('#act', el).value);
+  }
+
+  // กิจกรรม mode
+  function popAward(p) {
+    const a = activities.find(x => x.id == $('#act').value);
+    if (!a) { show(`<div class="stack"><div class="status bad">ยังไม่ได้เลือกกิจกรรม</div>${closeBtn}</div>`); return; }
+    const el = show(`<div class="stack"><div class="status info">${esc(a.name)}<small>+${a.points} Point</small></div>${person(p)}
+      <button class="btn red big block" id="go">${IMF.icon('star', 22, 2.4)}ให้ +${a.points} Point</button>${closeBtn}</div>`);
+    $('#go', el).onclick = async (e) => {
       e.currentTarget.disabled = true;
       try {
         const r = await rpc('staff_award', { uid: p.id, activity: a.id });

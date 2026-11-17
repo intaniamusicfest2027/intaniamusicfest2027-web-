@@ -83,22 +83,16 @@
 
   render(me);
 
-  // staff scanned the ticket → pop up straight away (no refresh needed)
-  if (!me.checked_in_at) {
-    IMF.watch({
-      table: 'profiles', filter: 'id=eq.' + me.id,
-      check: async () => {
-        const p = await api.myProfile();
-        if (!p || !p.checked_in_at) return false;
-        render(p);
-        if (navigator.vibrate) navigator.vibrate([80, 60, 120]);
-        IMF.modal(`<div class="done"><span class="okdisc">${icon('check', 64, 2.8)}</span><h2>เข้างานสำเร็จ!</h2>
-          <div class="what">${esc(p.first_name)} ${esc(p.last_name)}</div><div class="muted">${new Date(p.checked_in_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</div>
-          <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`);
-        return true;
-      }
-    });
-  }
+  // staff scanned the ticket / gave activity points → pop up straight away (no refresh needed)
+  IMF.watchMe(me, {
+    onCheckin: (p) => {
+      render(p);
+      if (navigator.vibrate) navigator.vibrate([80, 60, 120]);
+      IMF.modal(`<div class="done"><span class="okdisc">${icon('check', 64, 2.8)}</span><h2>เข้างานสำเร็จ!</h2>
+        <div class="what">${esc(p.first_name)} ${esc(p.last_name)}</div><div class="muted">${new Date(p.checked_in_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</div>
+        <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`);
+    }
+  });
 })();
 </script>
 </body>

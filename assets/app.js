@@ -519,12 +519,12 @@
   // check() must return true when the thing we wait for has happened.
   function watch({ table, filter, check, every = 3000 }) {
     let done = false, ch = null, timer = null;
-    const run = async () => { if (done) return; try { if (await check()) stop(); } catch (e) {} };
+    const run = async () => { if (done || document.hidden) return; try { if (await check()) stop(); } catch (e) {} };
     const stop = () => { done = true; clearInterval(timer); if (ch) { sb.removeChannel(ch); ch = null; } };
     if (!DEMO && sb && table) {
       try { ch = sb.channel('w-' + table + '-' + Math.random().toString(36).slice(2)).on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter }, run).subscribe(); } catch (e) {}
     }
-    timer = setInterval(run, every);
+    timer = setInterval(run, DEMO ? Math.min(every, 2000) : every);
     if (DEMO) window.addEventListener('storage', run);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) run(); });
     return { stop };
@@ -563,6 +563,31 @@
   // what the current person earns per invited friend
   const invitePoints = (s, category) => +(category === 'eng' ? s.points_per_referral_eng : s.points_per_referral) || 0;
 
+  // Keeps an eye on my own row: pops up when staff check me in or give me activity points.
+  // Realtime does the work; the slow poll is only a safety net (thousands of phones are open at once).
+  function watchMe(me, { onCheckin } = {}) {
+    let last = { pts: me.points, in: me.checked_in_at };
+    return watch({
+      table: 'profiles', filter: 'id=eq.' + me.id, every: 20000,
+      check: async () => {
+        const p = await api.myProfile(); if (!p) return false;
+        const was = last; last = { pts: p.points, in: p.checked_in_at };
+        if (!was.in && p.checked_in_at && onCheckin) onCheckin(p);
+        if (p.points > was.pts && !$('.modal .done')) {
+          const h = (await rpc('my_points_history').catch(() => [])).find(x => x.delta > 0);
+          const what = h ? (h.reason === 'activity' ? h.detail : REASON[h.reason]) : '';
+          if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+          modal(`<div class="done"><span class="okdisc star">${icon('star', 56, 2.4)}</span><h2>ได้รับ Point!</h2>
+            <div class="plus">+${fmt(p.points - was.pts)} Point</div>${what ? `<div class="what">${esc(what)}</div>` : ''}
+            <div class="muted">รวม ${fmt(p.points)} Point</div>
+            <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`);
+          $$('.pcard .num b').forEach(b => { b.textContent = fmt(p.points); });
+        }
+        return false;
+      }
+    });
+  }
+
   // the invite card (code + share buttons)
   function inviteCard(me, friends) {
     return `<div class="card invite">
@@ -577,5 +602,5 @@
     const s = e.target.closest('[data-share]'); if (s) return shareInvite(s.dataset.share);
   });
 
-  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, tabs, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard, icon, ICON, LOGO, countdownHTML, startCountdown, comingSoon, pointPill, watch };
+  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, tabs, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard, icon, ICON, LOGO, countdownHTML, startCountdown, comingSoon, pointPill, watch, watchMe };
 })();

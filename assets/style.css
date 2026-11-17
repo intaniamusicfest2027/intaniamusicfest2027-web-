@@ -540,3 +540,12 @@ html { background: #c9363a; }
 .tk-ok b { font-size: 20px; font-weight: 800; }
 .tk-ok span { font-size: 13px; opacity: .9; }
 .homelogo { margin-top: 34px; }
+/* iPhone Safari colours the status-bar strip from the page background: make it match the stage lights */
+@media (max-width: 600px) { html, body { background-color: #c9363a; } }
+body.has-tabs { padding-bottom: 0; }
+body.has-tabs .stage { padding-bottom: calc(112px + env(safe-area-inset-bottom)); }
+.seg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 14px; background: rgba(0, 0, 0, .45); border: 1px solid var(--line); }
+.seg2 button { min-height: 46px; border: 0; border-radius: 10px; background: none; color: var(--ink-2); font-weight: 700; font-size: 15.5px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+.seg2 button.on { background: #fff; color: #8e0a10; }
+.done .okdisc.star { background: #e0a100; box-shadow: 0 0 0 10px rgba(224, 161, 0, .18); }
+.done .plus { font-size: 34px; font-weight: 800; color: #c8102e; line-height: 1.1; }
