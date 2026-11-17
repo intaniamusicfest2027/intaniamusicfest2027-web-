@@ -598,6 +598,8 @@
     </div>`;
   }
   document.addEventListener('click', e => {
+    const reg = e.target.closest('a[href="register.html"]');
+    if (reg) { try { if (reg.dataset.next) sessionStorage.setItem('imf_next', reg.dataset.next); else sessionStorage.removeItem('imf_next'); } catch (x) {} }
     const c = e.target.closest('[data-copy]'); if (c) return copy(c.dataset.copy);
     const s = e.target.closest('[data-share]'); if (s) return shareInvite(s.dataset.share);
   });
