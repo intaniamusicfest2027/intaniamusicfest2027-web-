@@ -21,14 +21,14 @@
 
   // remember a friend's code from the invite link (survives the Google sign-in redirect)
   const qs = new URLSearchParams(location.search);
-  if (qs.get('ref')) localStorage.setItem('imf_ref', qs.get('ref').toUpperCase().slice(0, 6));
+  if (qs.get('ref')) localStorage.setItem('imf_ref', qs.get('ref').toUpperCase().slice(0, 12));
 
   const { info, settings } = await IMF.boot();
   const savedRef = settings.referral_open ? (localStorage.getItem('imf_ref') || '') : '';
   const engOnly = settings.eng_round_open && !settings.general_round_open;
   const closed = !settings.eng_round_open && !settings.general_round_open;
 
-  if (info.logged_in && info.registered) { location.replace('me.html'); return; }
+  if (info.logged_in && info.registered) { location.replace('index.html'); return; }
 
   // ---------- step 1: sign in ----------
   if (!info.logged_in) {
@@ -40,7 +40,7 @@
         : 'นิสิตจุฬาฯ เข้าสู่ระบบด้วยบัญชี CU<br>บุคคลทั่วไปใช้บัญชี Google'}</p>
       ${savedRef ? `<div class="center"><span class="chip on">รหัสเพื่อน ${esc(savedRef)}</span></div>` : ''}
       <div id="login" class="stack"></div>
-      <div class="hint center">กรอกข้อมูลอีกไม่กี่ช่องก็เสร็จ ใช้เวลาไม่ถึง 1 นาที</div>`}
+      `}
     </div>`;
     if ($('#login')) IMF.loginButtons($('#login'), { cuOnly: engOnly });
     return;
@@ -82,7 +82,7 @@
     </div>
     <div class="f"><span>เพศ</span><div class="seg" id="gender">${Object.keys(GENDER).map(k => `<button type="button" data-v="${k}">${GENDER[k]}</button>`).join('')}</div></div>
     ${cat === 'eng' ? `<div class="f"><span>กรุ๊ป</span><div class="seg groups" id="group">${GROUPS.map(g => `<button type="button" data-v="${g}">${g}</button>`).join('')}</div></div>` : ''}
-    ${settings.referral_open ? `<label class="f"><span>รหัสเพื่อน <i>(ถ้ามีเพื่อนชวนมา ได้ Point ทั้งคู่)</i></span><input class="input" name="ref_code" maxlength="6" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
+    ${settings.referral_open ? `<label class="f"><span>โค้ดเพื่อน <i>(ถ้ามี)</i></span><input class="input" name="ref_code" maxlength="12" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
     <label class="check"><input type="checkbox" name="consent">
       <span>ยินยอมให้ทีมงาน INTANIA MUSIC FEST เก็บและใช้ข้อมูลนี้เพื่อการลงทะเบียน การติดต่อ และการจัดงานครั้งนี้เท่านั้น</span></label>
     <div id="err" class="errtext"></div>
@@ -123,7 +123,7 @@
     } catch (ex) {
       const raw = String(ex.message || '');
       bad(/BAD_REF/.test(raw) ? f.ref_code : null, IMF.errMsg(ex));
-      if (/ALREADY_REGISTERED/.test(raw)) setTimeout(() => location.replace('me.html'), 1200);
+      if (/ALREADY_REGISTERED/.test(raw)) setTimeout(() => location.replace('index.html'), 1200);
       btn.disabled = false; btn.innerHTML = '<b>ลงทะเบียน</b>';
     }
   };
@@ -134,9 +134,9 @@
     root.innerHTML = `<div class="stack">
       <h1 class="page-title">ลงทะเบียนสำเร็จ 🎉</h1>
       <p class="muted center" style="margin:0">เจอกันนะ ${esc(name)}<br>28 มกราคม 2570 ที่ลานอินทาเนีย</p>
-      ${me && me.points ? `<div class="center"><span class="chip on">ได้รับ ${fmt(me.points)} Point จากรหัสเพื่อน</span></div>` : ''}
-      ${me ? IMF.inviteCard(me, settings) : ''}
-      <a class="btn big block" href="me.html">ไปที่<b>บัตรของฉัน</b></a>
+      ${me && me.points ? `<div class="center"><span class="chip on">ได้รับ ${fmt(me.points)} Point</span></div>` : ''}
+      ${me ? IMF.inviteCard(me, 0) : ''}
+      <a class="btn red big block" href="index.html">ไปหน้าแรก</a>
     </div>`;
   }
 })();

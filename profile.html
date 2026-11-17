@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a0305">
+<title>โปรไฟล์ · INTANIA MUSIC FEST</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/config.js"></script>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/app.js"></script>
+</head>
+<body>
+<main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+
+<script>
+(async () => {
+  const { api, rpc, $, esc, fmt, CATEGORY, YEAR, GENDER, icon } = IMF;
+  const root = $('#root');
+  const { info, settings } = await IMF.boot();
+  if (!info.logged_in) { location.replace('register.html'); return; }
+  const me = info.registered ? await api.myProfile().catch(() => null) : null;
+  const slots = IMF.tabs(info, settings).map(t => t[0]);
+  const link = (href, ic, label) => `<a class="card linkrow" href="${href}"><span class="sq">${icon(ic, 22)}</span><b>${label}</b>${icon('chev', 20)}</a>`;
+  const links = [
+    !slots.includes('contact.html') ? link('contact.html', 'bell', 'ติดตาม') : '',
+    settings.map_open && !slots.includes('map.html') ? link('map.html', 'map', 'แผนผังงาน') : '',
+    settings.leaderboard_open && settings.rewards_open ? link('rewards.html', 'gift', 'ของรางวัล') : '',
+    info.is_staff && !slots.includes('staff.html') ? link('staff.html', 'scan', 'สแกน QR') : '',
+    info.is_admin ? link('admin.html', 'shield', 'หลังบ้าน') : ''
+  ].join('');
+  const sub = me ? (me.student_id ? [me.student_id, me.faculty, me.year ? YEAR[me.year] : ''].filter(Boolean).join(' · ') : CATEGORY[me.category]) : info.email;
+  root.innerHTML = `<div class="ph"><h1>โปรไฟล์</h1></div><div class="stack" style="margin-top:0">
+    <div class="card row nowrap" style="gap:14px"><span class="avatar">${esc(((me && (me.nickname || me.first_name)) || info.email || '?').trim().charAt(0).toUpperCase())}</span>
+      <div style="flex:1;min-width:0"><b style="font-size:18px;display:block">${me ? esc(me.first_name + ' ' + me.last_name) : 'ยังไม่ได้ลงทะเบียน'}</b><span class="small muted">${esc(sub)}</span></div></div>
+    ${me ? `<div class="card" style="padding:4px 16px">
+      <div class="irow"><span>ชื่อเล่น</span><b>${esc(me.nickname || '–')}</b></div><div class="irow"><span>เบอร์โทร</span><b>${esc(me.phone)}</b></div>
+      <div class="irow"><span>เพศ</span><b>${esc(GENDER[me.gender] || '–')}</b></div>${me.group_code ? `<div class="irow"><span>กลุ่ม</span><b>Group ${esc(me.group_code)}</b></div>` : ''}
+      <div class="irow"><span>อีเมล</span><b class="small">${esc(me.email)}</b></div></div>
+      <button class="btn ghost block" id="edit">${icon('edit', 18)}แก้ไขข้อมูลส่วนตัว</button>`
+      : '<a class="btn red block" href="register.html">ลงทะเบียน</a>'}
+    ${links}
+    <button class="btn danger block" id="logout">${icon('logout', 18)}ออกจากระบบ</button></div>`;
+  $('#logout').onclick = async () => { await api.signOut(); location.href = 'index.html'; };
+  if (me) $('#edit').onclick = () => {
+    const m = IMF.modal(`<form class="stack" id="ef"><h2>แก้ไขข้อมูล</h2>
+      <div class="grid-2"><label class="f"><span>ชื่อ</span><input class="input" name="first_name" value="${esc(me.first_name)}"></label>
+        <label class="f"><span>นามสกุล</span><input class="input" name="last_name" value="${esc(me.last_name)}"></label></div>
+      <div class="grid-2"><label class="f"><span>ชื่อเล่น</span><input class="input" name="nickname" value="${esc(me.nickname || '')}"></label>
+        <label class="f"><span>เบอร์โทร</span><input class="input" name="phone" type="tel" inputmode="numeric" value="${esc(me.phone)}"></label></div>
+      <div class="grid-2"><button type="button" class="btn ghost block" data-close>ยกเลิก</button><button class="btn red block">บันทึก</button></div></form>`);
+    $('#ef', m.el).onsubmit = async (e) => {
+      e.preventDefault(); const f = e.target;
+      try { await rpc('update_my_profile', { p: { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), nickname: f.nickname.value.trim(), phone: f.phone.value } }); IMF.toast('บันทึกแล้ว'); setTimeout(() => location.reload(), 500); }
+      catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  };
+})();
+</script>
+</body>
+</html>

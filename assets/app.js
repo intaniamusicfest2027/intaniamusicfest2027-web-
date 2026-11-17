@@ -54,7 +54,11 @@
     BAD_STUDENT_ID: 'รหัสนิสิตต้องเป็นตัวเลข 10 หลัก',
     BAD_YEAR: 'ชั้นปีไม่ถูกต้อง',
     BAD_CATEGORY: 'ประเภทไม่ถูกต้อง',
-    QR_EXPIRED: 'QR หมดอายุ ให้ผู้ร่วมงานเปิดหน้าบัตรใหม่แล้วสแกนอีกครั้ง'
+    QR_EXPIRED: 'QR หมดอายุ ให้ผู้ร่วมงานเปิด QR ใหม่แล้วสแกนอีกครั้ง',
+    REQUEST_USED: 'QR นี้แลกไปแล้ว',
+    REWARDS_CLOSED: 'ยังไม่เปิดหน้าของรางวัล',
+    BAD_CODE: 'โค้ดต้องเป็นตัวอักษรอังกฤษหรือตัวเลข 3–12 ตัว',
+    BAD_POINTS: 'Point ต้องไม่ติดลบ'
   };
   function errMsg(e) {
     const m = String((e && (e.message || e.code)) || e || '');
@@ -69,7 +73,7 @@
   // ------------------------------------------------------------------
   const demo = (function () {
     if (!DEMO) return null;
-    const KEY = 'imf_demo_v2';
+    const KEY = 'imf_demo_v6';
     const FAC = { '21': 'วิศวกรรมศาสตร์', '22': 'อักษรศาสตร์', '23': 'วิทยาศาสตร์', '24': 'รัฐศาสตร์', '25': 'สถาปัตยกรรมศาสตร์', '26': 'พาณิชยศาสตร์และการบัญชี', '27': 'ครุศาสตร์', '28': 'นิเทศศาสตร์', '29': 'เศรษฐศาสตร์', '30': 'แพทยศาสตร์', '33': 'เภสัชศาสตร์', '34': 'นิติศาสตร์' };
     const firsts = ['ภูมิ','ต้นข้าว','มายด์','ปั้น','ฟ้า','ไนน์','บีม','แพรว','ภู','เฟิร์น','กาย','ข้าวหอม','ปลื้ม','อิง','ชิน','น้ำ','บอส','พลอย'];
     const lasts = ['ศรีสุข','วงศ์ใหญ่','ทองดี','สายสุวรรณ','บุญมา','เจริญผล','แก้วกาญจนา','สุขเกษม'];
@@ -97,7 +101,8 @@
       profiles.forEach((p, i) => { if (i > 20 && Math.random() < .5) { const r = profiles[Math.floor(Math.pow(Math.random(), 2.2) * 60)]; if (r !== p) { p.referred_by = r.id; const pts = r.category === 'eng' ? 2 : 1; r.points += pts; p.points += 1; ledger.push({ user_id: r.id, delta: pts, reason: 'referral', related_user: p.id, created_at: p.created_at }, { user_id: p.id, delta: 1, reason: 'signup_bonus', related_user: r.id, created_at: p.created_at }); } } });
       return {
         user: null,
-        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, leaderboard_open: true, rewards_open: true, ticket_open: true, redeem_open: true, target: 12000 },
+        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, points_signup_bonus_eng: 1, leaderboard_open: true, rewards_open: false, ticket_open: false, ticket_countdown_at: '2027-01-15T10:00:00+07:00', map_open: false, redeem_open: true, target: 12000 },
+        ref_codes: [], redeem_requests: [],
         profiles, ledger, staff: [],
         rewards: [{ id: 1, name: 'สติกเกอร์', description: 'สติกเกอร์ลายโลโก้งาน', cost: 1, stock: 500, active: true, sort: 1, image: null }, { id: 2, name: 'ริสแบนด์', description: '', cost: 3, stock: 200, active: true, sort: 2, image: null }, { id: 3, name: 'เสื้อยืด', description: 'ไซซ์ S–XL', cost: 10, stock: 0, active: true, sort: 3, image: null }],
         activities: [{ id: 1, name: 'ถ่ายรูปที่ Photo booth', points: 2, active: true }, { id: 2, name: 'เล่นเกมบูธสปอนเซอร์', points: 1, active: true }],
@@ -108,6 +113,8 @@
     try { db = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
     if (!db) db = seed();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
+    // another tab (e.g. the staff scanner) may have changed the data
+    const reload = () => { try { const d = JSON.parse(localStorage.getItem(KEY)); if (d) Object.keys(d).forEach(k => { db[k] = d[k]; }); } catch (e) {} };
     save();
     const me = () => db.user && db.profiles.find(p => p.email === db.user.email);
     const fail = (c) => { throw new Error(c); };
@@ -138,18 +145,26 @@
         if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE');
         if (info.category === 'eng' && !GROUPS.includes(p.group_code)) fail('BAD_GROUP');
         if (!p.consent) fail('NO_CONSENT');
-        let referrer = null;
-        if (p.ref_code && s.referral_open) { referrer = db.profiles.find(x => x.ref_code === String(p.ref_code).toUpperCase()); if (!referrer) fail('BAD_REF'); }
+        let referrer = null, special = null;
+        const ref = s.referral_open && p.ref_code ? String(p.ref_code).toUpperCase() : null;
+        if (ref) {
+          special = db.ref_codes.find(c => c.code === ref) || null;
+          referrer = special ? db.profiles.find(x => x.id === special.owner) || null : db.profiles.find(x => x.ref_code === ref);
+          if (!special && !referrer) fail('BAD_REF');
+        }
         const row = { id: uuid(), email: info.email, category: info.category, round, first_name: p.first_name.trim(), last_name: p.last_name.trim(), nickname: p.nickname.trim(), gender: p.gender, phone,
           student_id: info.student_id, year: info.year, faculty: info.faculty, group_code: info.category === 'eng' ? p.group_code : null, ref_code: code(),
-          referred_by: referrer ? referrer.id : null, points: 0, qr_token: uuid(), checked_in_at: null, created_at: new Date().toISOString() };
+          referred_by: referrer ? referrer.id : null, used_code: ref, points: 0, qr_token: uuid(), checked_in_at: null, created_at: new Date().toISOString() };
         db.profiles.push(row);
-        if (referrer) {
-          const pts = +(referrer.category === 'eng' ? s.points_per_referral_eng : s.points_per_referral);
-          if (pts > 0) { referrer.points += pts; db.ledger.push({ user_id: referrer.id, delta: pts, reason: 'referral', related_user: row.id, created_at: row.created_at }); }
-          if (+s.points_signup_bonus > 0) { row.points += +s.points_signup_bonus; db.ledger.push({ user_id: row.id, delta: +s.points_signup_bonus, reason: 'signup_bonus', related_user: referrer.id, created_at: row.created_at }); }
+        let bonus = 0;
+        if (ref) {
+          const eng = referrer && referrer.category === 'eng';
+          const pts = special && special.referrer_points != null ? special.referrer_points : referrer ? +(eng ? s.points_per_referral_eng : s.points_per_referral) : 0;
+          bonus = special && special.invitee_points != null ? special.invitee_points : +(eng ? s.points_signup_bonus_eng : s.points_signup_bonus);
+          if (referrer && pts > 0) { referrer.points += pts; db.ledger.push({ user_id: referrer.id, delta: pts, reason: 'referral', related_user: row.id, created_at: row.created_at }); }
+          if (bonus > 0) { row.points += bonus; db.ledger.push({ user_id: row.id, delta: bonus, reason: 'signup_bonus', related_user: referrer ? referrer.id : null, note: referrer ? null : 'โค้ด ' + ref, created_at: row.created_at }); }
         }
-        save(); return { ref_code: row.ref_code };
+        save(); return { ref_code: row.ref_code, bonus };
       },
       update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!p.nickname) fail('BAD_NICKNAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); Object.assign(m, { phone, nickname: p.nickname, first_name: p.first_name, last_name: p.last_name }); save(); return null; },
       admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null, category: p.category || r.category }); if (/^\d+$/.test(p.points || '') && +p.points !== r.points) { db.ledger.push({ user_id: uid, delta: +p.points - r.points, reason: 'adjust', note: 'แก้ไขโดยแอดมิน', created_at: new Date().toISOString() }); r.points = +p.points; } if ('checked_in' in p) r.checked_in_at = p.checked_in ? (r.checked_in_at || new Date().toISOString()) : null; save(); return null; },
@@ -159,12 +174,65 @@
         if (!db.settings.leaderboard_open) return GROUPS.map(c => ({ group_code: c, registered: db.profiles.filter(p => p.group_code === c).length })).sort((a, b) => b.registered - a.registered); // demo user is admin
         return GROUPS.map(c => ({ group_code: c, registered: db.profiles.filter(p => p.group_code === c).length })).sort((a, b) => b.registered - a.registered);
       },
+      my_friends() { const m = me(); return db.profiles.filter(f => f.referred_by === m.id).length; },
+      my_redeem_start({ reward }) {
+        const m = me(), s = db.settings, w = db.rewards.find(x => x.id === reward && x.active);
+        if (!s.redeem_open) fail('REDEEM_CLOSED'); if (!w) fail('BAD_REWARD');
+        if (w.repeatable === false && db.ledger.some(l => l.user_id === m.id && l.reward_id === w.id)) fail('ALREADY_REDEEMED');
+        if (w.stock != null && w.stock <= 0) fail('OUT_OF_STOCK'); if (m.points < w.cost) fail('NOT_ENOUGH_POINTS');
+        db.redeem_requests.forEach(q => { if (q.user_id === m.id && q.status === 'pending') q.status = 'cancelled'; });
+        const q = { id: Date.now(), token: uuid(), user_id: m.id, reward_id: w.id, status: 'pending', created_at: new Date().toISOString() };
+        db.redeem_requests.push(q); save();
+        return { id: q.id, token: q.token, code: 'IMF27R:' + q.token, expires_in: 180, reward: w.name, cost: w.cost };
+      },
+      my_redeem_status({ tok }) {
+        const q = db.redeem_requests.find(x => x.token === tok); if (!q) return null; const w = db.rewards.find(x => x.id === q.reward_id);
+        const st = q.status === 'pending' && Date.now() - new Date(q.created_at) > 180000 ? 'expired' : q.status;
+        return { status: st, reward: w.name, cost: w.cost, points_after: q.points_after, done_at: q.done_at };
+      },
+      my_redeem_cancel({ tok }) { const q = db.redeem_requests.find(x => x.token === tok); if (q && q.status === 'pending') { q.status = 'cancelled'; save(); } return null; },
+      staff_redeem_confirm({ tok }) {
+        const q = db.redeem_requests.find(x => x.token === tok); if (!q) fail('NOT_FOUND');
+        if (q.status === 'done') fail('REQUEST_USED');
+        if (q.status === 'cancelled' || Date.now() - new Date(q.created_at) > 180000) fail('QR_EXPIRED');
+        const r = rpc.staff_redeem({ uid: q.user_id, reward: q.reward_id });
+        Object.assign(q, { status: 'done', done_at: new Date().toISOString(), points_after: r.points }); save();
+        return r;
+      },
+      admin_referral_stats() {
+        const P = db.profiles;
+        return { referred: P.filter(p => p.used_code || p.referred_by).length, points: db.ledger.filter(l => l.reason === 'referral' || l.reason === 'signup_bonus').reduce((a, l) => a + l.delta, 0),
+          top: P.map(p => ({ name: full(p), code: p.ref_code, grp: p.group_code, n: P.filter(f => f.referred_by === p.id).length })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 10) };
+      },
+      admin_ref_codes() {
+        return db.ref_codes.slice().reverse().map(c => { const o = db.profiles.find(p => p.id === c.owner); return { ...c, owner_name: o ? full(o) : null, used: db.profiles.filter(p => p.used_code === c.code).length }; });
+      },
+      admin_ref_code_save({ who, ref_pts, inv_pts, lbl }) {
+        const w = String(who || '').trim(), W = w.toUpperCase();
+        if (ref_pts < 0 || inv_pts < 0) fail('BAD_POINTS');
+        const p = db.profiles.find(x => x.ref_code === W || x.student_id === w || x.email === w.toLowerCase());
+        const code = p ? p.ref_code : W;
+        if (!p && !/^[A-Z0-9]{3,12}$/.test(W)) fail('BAD_CODE');
+        let c = db.ref_codes.find(x => x.code === code);
+        if (!c) { c = { code, owner: p ? p.id : null, label: lbl || null, created_at: new Date().toISOString() }; db.ref_codes.push(c); }
+        Object.assign(c, { referrer_points: p ? ref_pts : 0, invitee_points: inv_pts }); if (lbl) c.label = lbl;
+        save(); return code;
+      },
+      admin_ref_code_delete({ c }) { db.ref_codes = db.ref_codes.filter(x => x.code !== String(c).toUpperCase()); save(); return null; },
       staff_lookup({ q }) {
-        let s = String(q || '').trim(); const by_token = s.startsWith('IMF27:');
+        let s = String(q || '').trim();
+        if (s.startsWith('IMF27R:')) {
+          const rq = db.redeem_requests.find(x => x.token === s.slice(7)); if (!rq) fail('NOT_FOUND');
+          const r = db.profiles.find(p => p.id === rq.user_id), w = db.rewards.find(x => x.id === rq.reward_id);
+          const st = rq.status === 'pending' && Date.now() - new Date(rq.created_at) > 180000 ? 'expired' : rq.status;
+          return { id: r.id, by_token: true, kind: 'redeem', name: full(r), nickname: r.nickname, gender: r.gender, category: r.category, student_id: r.student_id, year: r.year, faculty: r.faculty, group_code: r.group_code, points: r.points, checked_in_at: r.checked_in_at,
+            request: { token: rq.token, reward: w.name, reward_id: w.id, cost: w.cost, stock: w.stock, status: st } };
+        }
+        const by_token = s.startsWith('IMF27:');
         if (by_token) { const parts = s.slice(6).split(':'); if (parts.length !== 3 || Math.floor(Date.now() / 180000) - +parts[1] > 1) fail('QR_EXPIRED'); s = parts[0]; }
         const r = by_token ? db.profiles.find(p => p.qr_token === s) : db.profiles.find(p => p.ref_code === s.toUpperCase() || p.student_id === s || p.email === s.toLowerCase());
         if (!r) fail('NOT_FOUND');
-        return { id: r.id, by_token, name: full(r), nickname: r.nickname, gender: r.gender, category: r.category, student_id: r.student_id, year: r.year, faculty: r.faculty, group_code: r.group_code, points: r.points, checked_in_at: r.checked_in_at };
+        return { id: r.id, by_token, kind: by_token ? 'entry' : 'search', name: full(r), nickname: r.nickname, gender: r.gender, category: r.category, student_id: r.student_id, year: r.year, faculty: r.faculty, group_code: r.group_code, points: r.points, checked_in_at: r.checked_in_at };
       },
       staff_checkin({ uid }) { const r = db.profiles.find(p => p.id === uid); if (r.checked_in_at) return { ok: false, checked_in_at: r.checked_in_at }; r.checked_in_at = new Date().toISOString(); save(); return { ok: true, checked_in_at: r.checked_in_at }; },
       staff_redeem({ uid, reward }) {
@@ -195,11 +263,16 @@
           by_reward: db.rewards.map(w => ({ name: w.name, stock: w.stock, n: red.filter(l => l.reward_id === w.id).length })).filter(x => x.n)
         };
       },
-      admin_list({ q, lim, off }) {
-        q = (q || '').toLowerCase();
-        const rows = db.profiles.filter(p => !q || [p.first_name, p.last_name, p.nickname, p.email, p.phone, p.ref_code, p.student_id, p.faculty].some(v => v && String(v).toLowerCase().includes(q)))
-          .sort((a, b) => b.created_at.localeCompare(a.created_at));
-        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, friends: db.profiles.filter(f => f.referred_by === p.id).length, total_count: rows.length }));
+      admin_list({ q, lim, off, f }) {
+        q = (q || '').toLowerCase(); f = f || {};
+        const friends = (p) => db.profiles.filter(x => x.referred_by === p.id).length;
+        const rows = db.profiles.filter(p => (!q || [p.first_name, p.last_name, p.nickname, p.email, p.phone, p.ref_code, p.student_id, p.faculty].some(v => v && String(v).toLowerCase().includes(q)))
+            && (!f.checked || (f.checked === 'yes') === !!p.checked_in_at) && (!f.category || p.category === f.category) && (!f.group || p.group_code === f.group)
+            && (!f.faculty || p.faculty === f.faculty) && (!f.year || p.year === f.year) && (!f.gender || p.gender === f.gender)
+            && (!f.points || (f.points === 'has' ? p.points > 0 : f.points === 'ge10' ? p.points >= 10 : p.points === 0)))
+          .map(p => ({ ...p, friends: friends(p) }))
+          .sort((a, b) => f.sort === 'points' ? b.points - a.points : f.sort === 'friends' ? b.friends - a.friends : f.sort === 'sid' ? String(a.student_id || '~').localeCompare(String(b.student_id || '~')) : b.created_at.localeCompare(a.created_at));
+        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, total_count: rows.length }));
       },
       admin_person({ uid }) {
         const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND');
@@ -214,8 +287,8 @@
       admin_adjust_points({ uid, delta, note }) { const r = db.profiles.find(p => p.id === uid); if (r.points + delta < 0) fail('NOT_ENOUGH_POINTS'); r.points += delta; db.ledger.push({ user_id: uid, delta, reason: 'adjust', note, created_at: new Date().toISOString() }); save(); return r.points; }
     };
     return {
-      rpc: async (name, args) => { await new Promise(r => setTimeout(r, 80)); return rpc[name](args || {}); },
-      db, save, me, FAC,
+      rpc: async (name, args) => { await new Promise(r => setTimeout(r, 80)); reload(); return rpc[name](args || {}); },
+      db, save, me, FAC, reload,
       login(email) { db.user = { email: email || '6830000021@student.chula.ac.th' }; save(); },
       logout() { db.user = null; save(); },
       reset() { localStorage.removeItem(KEY); }
@@ -271,6 +344,7 @@
     },
     async signOut() { if (DEMO) demo.logout(); else await sb.auth.signOut(); },
     settings(fresh) {
+      if (DEMO && fresh) demo.reload();
       if (!settingsP || fresh) settingsP = DEMO ? Promise.resolve({ ...demo.db.settings })
         : q(sb.from('settings').select('key,value')).then(rows => Object.fromEntries(rows.map(r => [r.key, r.value])));
       return settingsP;
@@ -282,7 +356,7 @@
       await q(sb.from('settings').update({ value }).eq('key', key).select('key'));
     },
     async myProfile() {
-      if (DEMO) { const m = demo.me(); return m ? { ...m } : null; }
+      if (DEMO) { demo.reload(); const m = demo.me(); return m ? { ...m } : null; }
       const s = await api.session(); if (!s) return null;
       return q(sb.from('profiles').select('*').eq('id', s.user.id).maybeSingle());
     },
@@ -350,24 +424,68 @@
     return bits.filter(Boolean).join(' · ');
   }
 
-  // Renders header + footer and returns { info, settings }
+  // ---------- icons (stroke SVG, 24×24) ----------
+  const ICON = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+    gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M12 8S10.5 3.5 8 4.2C6 4.8 6.6 8 9 8M12 8s1.5-4.5 4-3.8c2 .6 1.4 3.8-1 3.8"/>',
+    ticket: '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4z"/><path d="M15 6v2M15 11v2M15 16v2"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/>',
+    login: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/>',
+    scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>',
+    map: '<path d="M9 3 3 6v15l6-3 6 3 6-3V3l-6 3z"/><path d="M9 3v15M15 6v15"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
+    chev: '<path d="m9 18 6-6-6-6"/>',
+    back: '<path d="m15 18-6-6 6-6"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+    shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',
+    trophy: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+    star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>'
+  };
+  const icon = (n, size = 22, sw = 1.9) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n] || ''}</svg>`;
+
+  // Which page sits in each slot of the bottom bar. Slots 2 and 4 change with the admin settings.
+  function tabs(info, s) {
+    return [
+      ['index.html', 'home', 'Home'],
+      s.leaderboard_open ? ['leaderboard.html', 'users', 'อันดับกลุ่ม'] : ['rewards.html', 'gift', 'ของรางวัล'],
+      ['me.html', 'ticket', 'บัตรเข้างาน', true],
+      info.is_staff ? ['staff.html', 'scan', 'สแกน'] : s.map_open ? ['map.html', 'map', 'แผนผังงาน'] : ['contact.html', 'bell', 'ติดตาม'],
+      info.logged_in ? ['profile.html', 'user', 'โปรไฟล์'] : ['register.html', 'login', 'เข้าสู่ระบบ']
+    ];
+  }
+
+  // Renders the bottom bar (or the admin header) and returns { info, settings }
   async function boot(opts = {}) {
     const [info, settings] = await Promise.all([api.info(), api.settings().catch(() => ({}))]);
     const page = location.pathname.split('/').pop() || 'index.html';
-    const nav = [['index.html', 'หน้าหลัก'], info.registered ? ['me.html', 'บัตรของฉัน'] : ['register.html', 'ลงทะเบียน']];
-    if (settings.rewards_open || info.is_admin) nav.push(['rewards.html', 'ของรางวัล']);
-    if (settings.leaderboard_open) nav.push(['leaderboard.html', 'อันดับกรุ๊ป']);
-    nav.push(['contact.html', 'ติดตาม']);
-    if (info.is_staff) nav.push(['staff.html', 'สแกน']);
-    if (info.is_admin) nav.push(['admin.html', 'หลังบ้าน']);
     const stage = $('.stage');
-    const bar = document.createElement('header');
-    bar.className = 'topbar';
-    bar.innerHTML = `${opts.noBrand ? '' : '<a class="brand" href="index.html" aria-label="INTANIA MUSIC FEST"><img src="assets/logo.png" alt=""></a>'}
-      <nav class="nav">${nav.map(([h, t]) => `<a href="${h}" class="${page === h ? 'active' : ''}">${t}</a>`).join('')}</nav>`;
-    if (opts.overlay) { bar.style.position = 'absolute'; bar.style.left = 0; bar.style.right = 0; bar.style.top = 0; }
-    else { const art = document.createElement('div'); art.className = 'art'; stage.prepend(art); }
-    stage.prepend(bar);
+    if (!opts.noArt) { const art = document.createElement('div'); art.className = 'art'; stage.prepend(art); }
+    if (opts.admin) {
+      document.body.classList.add('admin');
+    } else {
+      document.body.classList.add('has-tabs');
+      const nav = document.createElement('nav');
+      nav.className = 'tabbar'; nav.setAttribute('aria-label', 'เมนูหลัก');
+      nav.innerHTML = tabs(info, settings).map(([h, ic, label, center]) => {
+        const on = page === h;
+        if (center) return `<a href="${h}" class="tab center ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}><span class="disc">${icon(ic, 28, 2)}${info.registered ? '' : `<i class="lockb">${icon('lock', 12, 2.6)}</i>`}</span><span>${label}</span></a>`;
+        return `<a href="${h}" class="tab ${on ? 'on' : ''}" ${on ? 'aria-current="page"' : ''}>${icon(ic, 24, on ? 2.2 : 1.8)}<span>${label}</span></a>`;
+      }).join('');
+      document.body.appendChild(nav);
+    }
     if (DEMO) {
       const b = document.createElement('div');
       b.className = 'demo-banner';
@@ -375,10 +493,41 @@
       document.body.prepend(b);
       $('#demoReset').onclick = (e) => { e.preventDefault(); demo.reset(); location.reload(); };
     }
-    const f = document.createElement('footer');
-    f.innerHTML = `${esc(EVENT.hashtag)} · <a href="contact.html">ติดตามข่าวสาร / สอบถาม</a>`;
-    document.body.appendChild(f);
     return { info, settings };
+  }
+
+  // ---------- shared pieces ----------
+  const LOGO = 'assets/logo.png';
+  function countdownHTML(cls = '') { return `<div class="cd ${cls}">${['วัน', 'ชั่วโมง', 'นาที', 'วินาที'].map(l => `<div><b>00</b><span>${l}</span></div>`).join('')}</div>`; }
+  // keeps every .cd inside el ticking towards target
+  function startCountdown(el, target) {
+    const end = new Date(target).getTime();
+    const tick = () => {
+      let s = Math.max(0, Math.floor((end - Date.now()) / 1000));
+      const v = [Math.floor(s / 86400), Math.floor(s % 86400 / 3600), Math.floor(s % 3600 / 60), s % 60];
+      $$('.cd', el).forEach(cd => $$('b', cd).forEach((b, i) => { b.textContent = String(v[i]).padStart(2, '0'); }));
+      return s;
+    };
+    tick(); const t = setInterval(() => { if (!tick()) clearInterval(t); }, 1000);
+  }
+  function comingSoon(extra = '') {
+    return `<div class="soon"><img class="soon-logo" src="${LOGO}" alt="INTANIA MUSIC FEST"><div class="soon-t">COMING SOON</div>${extra}</div>`;
+  }
+  const pointPill = (n) => `<span class="ppill">${icon('trophy', 16, 2)}${fmt(n)} Point</span>`;
+
+  // Live updates: Supabase Realtime when available, plus polling as a safety net.
+  // check() must return true when the thing we wait for has happened.
+  function watch({ table, filter, check, every = 3000 }) {
+    let done = false, ch = null, timer = null;
+    const run = async () => { if (done) return; try { if (await check()) stop(); } catch (e) {} };
+    const stop = () => { done = true; clearInterval(timer); if (ch) { sb.removeChannel(ch); ch = null; } };
+    if (!DEMO && sb && table) {
+      try { ch = sb.channel('w-' + table + '-' + Math.random().toString(36).slice(2)).on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter }, run).subscribe(); } catch (e) {}
+    }
+    timer = setInterval(run, every);
+    if (DEMO) window.addEventListener('storage', run);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) run(); });
+    return { stop };
   }
 
   // Sign-in buttons. Chula accounts are Google accounts, so both go through Google;
@@ -414,14 +563,13 @@
   // what the current person earns per invited friend
   const invitePoints = (s, category) => +(category === 'eng' ? s.points_per_referral_eng : s.points_per_referral) || 0;
 
-  // the invite card (code + share buttons), shared by the home page and "my ticket"
-  function inviteCard(me, s) {
-    const mine = invitePoints(s, me.category), bonus = +s.points_signup_bonus || 0;
-    return `<div class="card white stack">
-      <div class="card-title" style="margin:0"><h3>ชวนเพื่อน รับ Point</h3></div>
-      <div class="code-box"><b>${esc(me.ref_code)}</b><button class="btn dark small" data-copy="${esc(me.ref_code)}">คัดลอก</button></div>
-      <div class="grid-2"><button class="btn red block" data-share="${esc(me.ref_code)}">ส่งลิงก์ชวนเพื่อน</button><button class="btn dark block" data-copy="${esc(inviteUrl(me.ref_code))}">คัดลอกลิงก์</button></div>
-      <div class="small muted">เพื่อนลงทะเบียนด้วยรหัสนี้ 1 คน คุณได้ <b>${fmt(mine)} Point</b>${bonus ? ` และเพื่อนได้ <b>${fmt(bonus)} Point</b>` : ''}${s.rewards_open ? ' · สะสมไว้<a href="rewards.html">แลกของรางวัล</a>ในวันงาน' : ''}</div>
+  // the invite card (code + share buttons)
+  function inviteCard(me, friends) {
+    return `<div class="card invite">
+      <div><b class="h">ชวนเพื่อน รับ Point</b>${friends != null ? `<div class="small muted">ชวนแล้ว ${fmt(friends)} คน</div>` : ''}</div>
+      <div class="row nowrap"><div class="codebox">${esc(me.ref_code)}</div>
+        <button class="iconbtn" data-copy="${esc(me.ref_code)}" aria-label="คัดลอกโค้ด">${icon('copy', 20)}</button>
+        <button class="iconbtn red" data-share="${esc(me.ref_code)}" aria-label="แชร์ลิงก์ชวนเพื่อน">${icon('share', 20)}</button></div>
     </div>`;
   }
   document.addEventListener('click', e => {
@@ -429,5 +577,5 @@
     const s = e.target.closest('[data-share]'); if (s) return shareInvite(s.dataset.share);
   });
 
-  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard };
+  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, tabs, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard, icon, ICON, LOGO, countdownHTML, startCountdown, comingSoon, pointPill, watch };
 })();

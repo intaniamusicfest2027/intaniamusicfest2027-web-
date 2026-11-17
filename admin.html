@@ -20,46 +20,48 @@
   .pie-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
   .pie-center b { font-size: 34px; line-height: 1; }
   .card { backdrop-filter: none; background: #1c0709; }
+  .grid-2 > .card, .grid-4 > .stat { min-width: 0; }
   tr.click { cursor: pointer; } tr.click:hover td { background: rgba(255, 255, 255, .05); }
   .thumb { width: 64px; height: 64px; border-radius: 10px; background: #3a1418 center / cover no-repeat; display: grid; place-items: center; cursor: pointer; font-size: 12px; color: var(--ink-3); text-align: center; flex: none; }
 </style>
 </head>
 <body>
-<main class="stage"><div class="inner w" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+<main class="stage"><div id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
 
 <script>
 (async () => {
-  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GENDER, REASON, GROUPS } = IMF;
+  const { api, rpc, $, $$, esc, fmt, CATEGORY, YEAR, GENDER, REASON, GROUPS, icon } = IMF;
   const root = $('#root');
-  const { info } = await IMF.boot();
+  const { info } = await IMF.boot({ admin: true });
 
   if (!info.logged_in) {
-    root.innerHTML = `<div class="stack" style="max-width:420px;margin:0 auto"><h1 class="page-title">หลังบ้าน</h1><button class="btn big block" id="login">เข้าสู่ระบบด้วย <b>Google</b></button></div>`;
-    $('#login').onclick = () => api.signIn(); return;
+    root.innerHTML = `<div class="inner stack" style="max-width:420px;margin:0 auto"><div class="ph"><h1>หลังบ้าน</h1></div><div id="login" class="stack"></div></div>`;
+    IMF.loginButtons($('#login')); return;
   }
-  if (!info.is_admin) { root.innerHTML = `<div class="card" style="margin-top:60px">บัญชี ${esc(info.email)} ไม่ใช่แอดมิน</div>`; return; }
+  if (!info.is_admin) { root.innerHTML = `<div class="inner"><div class="card" style="margin-top:60px">บัญชี ${esc(info.email)} ไม่ใช่แอดมิน · <a href="index.html">กลับหน้าเว็บ</a></div></div>`; return; }
 
-  root.innerHTML = `
-    <div class="row" style="justify-content:space-between;padding:30px 0 12px"><h1>หลังบ้าน</h1><button class="btn ghost small" id="refresh">↻ รีเฟรช</button></div>
-    <div class="tabs" id="tabs">
-      <button data-t="overview" class="on">ภาพรวม</button><button data-t="people">รายชื่อ</button>
-      <button data-t="settings">ตั้งค่า</button><button data-t="rewards">ของรางวัล & กิจกรรม</button>
-      <button data-t="ann">ประกาศ</button><button data-t="team">ทีมงาน</button>
-    </div>
-    <section id="t-overview"></section><section id="t-people" class="hide"></section><section id="t-settings" class="hide"></section>
-    <section id="t-rewards" class="hide"></section><section id="t-ann" class="hide"></section><section id="t-team" class="hide"></section>`;
+  const TABS = [['overview', 'ภาพรวม'], ['people', 'รายชื่อ'], ['referral', 'การชวน'], ['rewards', 'ของรางวัล & กิจกรรม'], ['settings', 'ตั้งค่า'], ['team', 'ทีมงาน']];
+  root.innerHTML = `<header class="ahead"><div class="in">
+      <a class="backbtn" href="index.html" aria-label="กลับหน้าเว็บ">${icon('back', 22)}</a>
+      <span class="brandl"><img src="${IMF.LOGO}" alt="INTANIA MUSIC FEST"><b>หลังบ้าน</b></span>
+      <nav class="atabs" id="tabs">${TABS.map(([k, l], i) => `<button data-t="${k}" class="${i ? '' : 'on'}">${l}</button>`).join('')}</nav>
+      <span class="roleb">${info.is_owner ? 'OWNER' : 'ADMIN'}</span>
+    </div></header>
+    <div class="amain">${TABS.map(([k], i) => `<section id="t-${k}" class="${i ? 'hide' : ''}"></section>`).join('')}</div>`;
 
-  const tabFn = { overview, people, settings: settingsTab, rewards: rewardsTab, ann: annTab, team: teamTab };
+  const tabFn = { overview, people, referral: referralTab, rewards: rewardsTab, settings: settingsTab, team: teamTab };
   let active = 'overview';
   $('#tabs').onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
     $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-    $$('#root section').forEach(s => s.classList.add('hide'));
+    $$('.amain > section').forEach(x => x.classList.add('hide'));
     active = b.dataset.t; $('#t-' + active).classList.remove('hide'); tabFn[active]();
   };
-  $('#refresh').onclick = () => tabFn[active]();
   const fail = (el, e) => { el.innerHTML = `<div class="card">${esc(IMF.errMsg(e))}</div>`; };
   const yearTxt = (y) => y ? (YEAR[y] || y) : '–';
+  const toggle = (k, on) => `<label class="switch"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}><i></i></label>`;
+  const srow = (label, ctrl) => `<div class="setting"><b>${label}</b>${ctrl}</div>`;
+  const sec = (ic, title, body) => `<div class="card sec"><h3>${icon(ic, 19)}${title}</h3>${body}</div>`;
 
   // ---------------- overview ----------------
   Chart.defaults.color = '#f0c9cc';
@@ -141,41 +143,70 @@
   }
 
   // ---------------- people ----------------
-  let page = 0, query = '';
+  let page = 0, query = '', F = {};
   const PAGE = 50;
+  const FILTERS = [
+    ['checked', 'สถานะเข้างาน', [['yes', 'เข้างานแล้ว'], ['no', 'ยังไม่เข้า']]],
+    ['category', 'ประเภท', Object.entries(CATEGORY)],
+    ['group', 'กลุ่ม', GROUPS.map(g => [g, 'Group ' + g])],
+    ['faculty', 'คณะ', []],
+    ['year', 'ชั้นปี', Object.entries(YEAR)],
+    ['gender', 'เพศ', Object.entries(GENDER)],
+    ['points', 'Point', [['has', 'มี Point'], ['ge10', '10 ขึ้นไป'], ['zero', '0 Point']]],
+    ['sort', 'เรียงตาม', [['points', 'Point มากสุด'], ['friends', 'ชวนมากสุด'], ['sid', 'รหัสนิสิต']]]
+  ];
+  const fLabel = (k, v) => { const d = FILTERS.find(x => x[0] === k); const o = d[2].find(x => x[0] === v); return o ? o[1] : v; };
   async function people() {
     const el = $('#t-people');
     if (!el.dataset.ready) {
       el.dataset.ready = 1;
-      el.innerHTML = `<div class="row" style="margin-bottom:12px">
-          <form id="search" class="row" style="flex:1"><input class="input" name="q" placeholder="ค้นหา ชื่อ / รหัสนิสิต / คณะ / เบอร์ / รหัสชวน" style="flex:1"><button class="btn small">ค้นหา</button></form>
-          <button class="btn ghost small" id="csv">⬇ Export CSV</button></div>
-        <div class="card tscroll" id="ptable" style="padding:6px 12px"></div>
-        <div class="row" style="justify-content:space-between;margin-top:12px"><button class="btn ghost small" id="prev">← ก่อนหน้า</button><span class="small dim" id="pinfo"></span><button class="btn ghost small" id="next">ถัดไป →</button></div>`;
+      if (!FACS) FACS = await api.faculties().catch(() => []);
+      FILTERS.find(x => x[0] === 'faculty')[2] = FACS.map(n => [n, n]);
+      el.innerHTML = `<div class="stack">
+        <div class="row" style="justify-content:space-between"><h2 style="text-shadow:none">รายชื่อ</h2><span class="muted" id="pinfo"></span></div>
+        <div class="row nowrap"><form id="search" class="row nowrap" style="flex:1;min-width:0"><input class="input" name="q" placeholder="ค้นหาชื่อ รหัสนิสิต เบอร์ หรือโค้ด" style="flex:1;min-width:0"><button class="btn small">${icon('search', 18)}</button></form>
+          <button class="btn ghost small ftoggle" id="ftog">${icon('filter', 17)}ตัวกรอง</button></div>
+        <div class="card fpanel closed stack" id="fpanel">
+          <div class="fgrid">${FILTERS.map(([k, l, opts]) => `<label>${l}<select data-f="${k}"><option value="">${k === 'sort' ? 'ลงทะเบียนล่าสุด' : 'ทั้งหมด'}</option>${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>`).join('')}</div>
+          <div class="row" id="fchips"></div>
+        </div>
+        <div class="card tscroll ptable-wrap" id="ptable" style="padding:6px 12px"></div>
+        <div class="pcards" id="pcards"></div>
+        <div class="row" style="justify-content:space-between"><button class="btn ghost small" id="prev">← ก่อนหน้า</button><button class="btn ghost small" id="csv">⬇ CSV ตามตัวกรอง</button><button class="btn ghost small" id="next">ถัดไป →</button></div></div>`;
       $('#search').onsubmit = e => { e.preventDefault(); query = e.target.q.value.trim(); page = 0; people(); };
       $('#prev').onclick = () => { if (page > 0) { page--; people(); } };
       $('#next').onclick = () => { page++; people(); };
       $('#csv').onclick = exportCsv;
-      $('#ptable').onclick = e => { const b = e.target.closest('[data-id]'); if (b) personModal(b.dataset.id); };
+      $('#ftog').onclick = () => $('#fpanel').classList.toggle('closed');
+      $('#fpanel').onchange = e => { const s = e.target.closest('[data-f]'); if (!s) return; if (s.value) F[s.dataset.f] = s.value; else delete F[s.dataset.f]; page = 0; people(); };
+      $('#fpanel').onclick = e => {
+        const x = e.target.closest('[data-rmf]'); if (x) { delete F[x.dataset.rmf]; page = 0; people(); return; }
+        if (e.target.closest('#fclear')) { F = {}; page = 0; people(); }
+      };
+      el.onclick = e => { const b = e.target.closest('[data-id]'); if (b) personModal(b.dataset.id); };
     }
-    $('#ptable').innerHTML = '<div class="spinner"></div>';
+    // reflect the filters in the selects, the chips and the toggle
+    $$('#fpanel [data-f]').forEach(s => { s.value = F[s.dataset.f] || ''; s.classList.toggle('set', !!F[s.dataset.f]); });
+    const keys = Object.keys(F).filter(k => k !== 'sort');
+    $('#fchips').innerHTML = keys.map(k => `<span class="fchip">${esc(fLabel(k, F[k]))}<button type="button" data-rmf="${k}" aria-label="ลบตัวกรอง">${icon('x', 13, 2.4)}</button></span>`).join('')
+      + (Object.keys(F).length ? '<button type="button" class="btn ghost small" id="fclear">ล้างทั้งหมด</button>' : '');
+    $('#ftog').innerHTML = icon('filter', 17) + 'ตัวกรอง' + (keys.length ? ` (${keys.length})` : '');
+    $('#ptable').innerHTML = '<div class="spinner"></div>'; $('#pcards').innerHTML = '';
     try {
-      const rows = await rpc('admin_list', { q: query, lim: PAGE, off: page * PAGE });
+      const rows = await rpc('admin_list', { q: query, lim: PAGE, off: page * PAGE, f: F });
       const total = rows[0] ? Number(rows[0].total_count) : 0;
-      $('#pinfo').textContent = total ? `${page * PAGE + 1}–${page * PAGE + rows.length} จาก ${fmt(total)}` : 'ไม่พบข้อมูล';
+      $('#pinfo').textContent = total ? `${fmt(total)} คน` : 'ไม่พบ';
       $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * PAGE >= total;
-      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ชั้นปี</th><th>คณะ</th><th>เบอร์</th><th>รหัสชวน</th><th style="text-align:right">ชวน</th><th style="text-align:right">Point</th><th></th></tr></thead><tbody>
+      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ปี</th><th>คณะ</th><th>เบอร์</th><th>โค้ดชวน</th><th style="text-align:right">ชวน</th><th style="text-align:right">Point</th><th></th></tr></thead><tbody>
         ${rows.map(r => `<tr>
           <td style="text-align:center">${r.checked_in_at ? '<b style="color:var(--ok)" title="เข้างานแล้ว">✓</b>' : '<span class="dim">–</span>'}</td>
-          <td class="mono">${esc(r.student_id || '–')}</td>
-          <td><b>${esc(r.first_name)} ${esc(r.last_name)}</b></td>
-          <td>${esc(yearTxt(r.year))}</td>
-          <td>${esc(r.faculty || CATEGORY[r.category])}</td>
-          <td class="mono">${esc(r.phone)}</td>
-          <td class="mono">${esc(r.ref_code)}</td>
-          <td class="mono" style="text-align:right">${fmt(r.friends)}</td>
-          <td class="mono" style="text-align:right"><b>${fmt(r.points)}</b></td>
-          <td><button class="btn ghost small" data-id="${r.id}">รายละเอียด</button></td></tr>`).join('')}</tbody></table>`;
+          <td class="mono">${esc(r.student_id || '–')}</td><td><b>${esc(r.first_name)} ${esc(r.last_name)}</b></td>
+          <td>${esc(yearTxt(r.year))}</td><td>${esc(r.faculty || CATEGORY[r.category])}</td><td class="mono">${esc(r.phone)}</td>
+          <td class="mono">${esc(r.ref_code)}</td><td class="mono" style="text-align:right">${fmt(r.friends)}</td>
+          <td class="mono" style="text-align:right"><b>${fmt(r.points)}</b></td><td><button class="btn ghost small" data-id="${r.id}">รายละเอียด</button></td></tr>`).join('')}</tbody></table>`;
+      $('#pcards').innerHTML = rows.map(r => `<div class="pcard2" data-id="${r.id}"><span class="st ${r.checked_in_at ? 'in' : ''}">${r.checked_in_at ? icon('check', 18, 2.6) : '–'}</span>
+        <span class="tx"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><span>${esc([r.student_id, r.year ? 'ปี ' + r.year : '', 'ชวน ' + r.friends].filter(Boolean).join(' · '))}</span></span>
+        <span class="pt"><b>${fmt(r.points)}</b><span>Point</span></span>${icon('chev', 18)}</div>`).join('') || '<div class="dim center">ไม่พบ</div>';
     } catch (e) { fail($('#ptable'), e); }
   }
 
@@ -250,9 +281,9 @@
   async function exportCsv() {
     IMF.toast('กำลังเตรียมไฟล์…');
     const COLS = [['checked_in_at', 'เข้างาน'], ['student_id', 'รหัสนิสิต'], ['first_name', 'ชื่อ'], ['last_name', 'นามสกุล'], ['nickname', 'ชื่อเล่น'], ['gender', 'เพศ'], ['year', 'ชั้นปี'], ['faculty', 'คณะ'],
-      ['group_code', 'กรุ๊ป'], ['category', 'ประเภท'], ['phone', 'เบอร์'], ['email', 'อีเมล'], ['ref_code', 'รหัสชวน'], ['referrer_code', 'รหัสเพื่อนที่ใช้'], ['friends', 'จำนวนชวน'], ['points', 'Point'], ['round', 'รอบ'], ['created_at', 'ลงทะเบียนเมื่อ']];
+      ['group_code', 'กลุ่ม'], ['category', 'ประเภท'], ['phone', 'เบอร์'], ['email', 'อีเมล'], ['ref_code', 'โค้ดชวน'], ['used_code', 'โค้ดที่ใช้สมัคร'], ['friends', 'จำนวนชวน'], ['points', 'Point'], ['round', 'รอบ'], ['created_at', 'ลงทะเบียนเมื่อ']];
     try {
-      const rows = await rpc('admin_list', { q: '', lim: 20000, off: 0 });
+      const rows = await rpc('admin_list', { q: query, lim: 20000, off: 0, f: F });
       const cell = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const lines = [COLS.map(c => c[1]).join(',')].concat(rows.map(r => COLS.map(([k]) => {
         let v = r[k];
@@ -269,34 +300,79 @@
     } catch (e) { IMF.toast(IMF.errMsg(e), true); }
   }
 
-  // ---------------- settings ----------------
-  const SETTINGS = [
-    ['ลงทะเบียน'],
-    ['eng_round_open', 'bool', 'เปิดรอบนิสิตวิศวะ', 'ลงทะเบียนได้เฉพาะอีเมลนิสิตวิศวะ (รหัสลงท้าย 21)'],
-    ['general_round_open', 'bool', 'เปิดรอบทั่วไป', 'เปิดแล้วทุกประเภทลงทะเบียนได้ (มีผลเหนือรอบวิศวะ)'],
-    ['allow_external', 'bool', 'รับบุคคลภายนอกจุฬาฯ', 'ใช้ในรอบทั่วไป ถ้าปิด = เฉพาะอีเมลจุฬาฯ'],
-    ['แคมเปญ'],
-    ['referral_open', 'bool', 'เปิดชวนเพื่อน', 'ปิดแล้วรหัสชวนจะไม่แสดงและกรอกตอนลงทะเบียนไม่ได้ Point เดิมยังอยู่'],
-    ['points_per_referral_eng', 'num', 'Point ของคนชวน (นิสิตวิศวะ)', 'ต่อเพื่อน 1 คน'],
-    ['points_per_referral', 'num', 'Point ของคนชวน (คนอื่น ๆ)', 'ต่อเพื่อน 1 คน'],
-    ['points_signup_bonus', 'num', 'Point ของคนที่ถูกชวน', 'ได้ตอนลงทะเบียนด้วยรหัสเพื่อน'],
-    ['leaderboard_open', 'bool', 'เปิดหน้าอันดับกรุ๊ป', 'แสดงทั้งในเมนูและหน้าหลัก ปิดแล้วคนทั่วไปดูไม่ได้'],
-    ['rewards_open', 'bool', 'เปิดหน้าของรางวัล', 'ปิดแล้วเมนูของรางวัลจะหาย แต่ทุกคนยังเห็น Point ของตัวเองตามปกติ'],
-    ['วันงาน'],
-    ['ticket_open', 'bool', 'แสดง QR ในบัตร', 'ให้ผู้ลงทะเบียนเห็น QR สำหรับสแกนเข้างาน'],
-    ['redeem_open', 'bool', 'เปิดระบบแลก Point', 'ให้ทีมงานสแกนแลกของรางวัลได้'],
-    ['target', 'num', 'เป้าหมายจำนวนคน', 'ใช้ในกราฟหน้าภาพรวม']
-  ];
-  async function settingsTab() {
-    const el = $('#t-settings');
-    let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
-    el.innerHTML = `<div class="card" style="padding-top:4px">${SETTINGS.map(([k, t, label, help]) => !t ? `<div class="sect">${k}</div>` : `<div class="setting"><div><b>${label}</b><small>${help}</small></div>
-      ${t === 'bool' ? `<label class="switch"><input type="checkbox" data-k="${k}" ${s[k] ? 'checked' : ''}><i></i></label>`
-        : `<input class="input" type="number" min="0" data-k="${k}" value="${esc(s[k])}" style="width:110px">`}</div>`).join('')}</div>`;
+  // ---------------- invite campaign ----------------
+  async function referralTab() {
+    const el = $('#t-referral');
+    let s, st, codes;
+    try { [s, st, codes] = await Promise.all([api.settings(true), rpc('admin_referral_stats'), rpc('admin_ref_codes')]); } catch (e) { return fail(el, e); }
+    const num = (k, label) => `<input class="numin" type="number" min="0" data-k="${k}" value="${esc(s[k] ?? 0)}" aria-label="${label}">`;
+    const cnum = (v, f, label, dis) => `<input class="numin" type="number" min="0" data-c="${f}" value="${v == null ? '' : esc(v)}" aria-label="${label}" ${dis ? 'disabled placeholder="–"' : ''}>`;
+    el.innerHTML = `<div class="stack">
+      <h2 style="text-shadow:none">การชวน</h2>
+      <div class="grid-3"><div class="stat"><div class="v">${fmt(st.referred)}</div><div class="l">ลงทะเบียนผ่านการชวน</div></div>
+        <div class="stat"><div class="v">${fmt(st.points)}</div><div class="l">Point จากการชวน</div></div>
+        <div class="stat"><div class="v">${fmt(codes.length)}</div><div class="l">โค้ดพิเศษ</div></div></div>
+      <div class="acols"><div>
+        ${sec('share', 'ตั้งค่าการชวน', srow('เปิดชวนเพื่อน', toggle('referral_open', s.referral_open)) + `<table class="matrix" style="margin:6px 0 4px"><thead><tr><th style="text-align:left">ผู้ชวน</th><th>คนชวนได้</th><th>คนถูกชวนได้</th></tr></thead><tbody>
+          <tr><th scope="row">วิศวฯ</th><td>${num('points_per_referral_eng', 'วิศวฯ คนชวนได้')}</td><td>${num('points_signup_bonus_eng', 'วิศวฯ คนถูกชวนได้')}</td></tr>
+          <tr><th scope="row">คนอื่น</th><td>${num('points_per_referral', 'คนอื่น คนชวนได้')}</td><td>${num('points_signup_bonus', 'คนอื่น คนถูกชวนได้')}</td></tr></tbody></table>`)}
+        ${sec('trophy', 'ชวนมากสุด', st.top.length ? `<ul class="list">${st.top.map((t, i) => `<li><span class="dim" style="width:22px;text-align:center;font-weight:800">${i + 1}</span><div style="flex:1;min-width:0"><b>${esc(t.name)}</b><div class="small muted">${esc(t.code)}${t.grp ? ' · Group ' + esc(t.grp) : ''}</div></div><b>${fmt(t.n)}</b><span class="small dim">คน</span></li>`).join('')}</ul>` : '<div class="dim">ยังไม่มี</div>')}
+      </div><div>
+        ${sec('star', 'โค้ดพิเศษ', `<form id="addc" class="stack" style="margin:8px 0 12px">
+            <div class="row nowrap"><input class="input" name="who" placeholder="โค้ด / รหัสนิสิต / อีเมล หรือโค้ดใหม่" style="flex:2;min-width:0" required>
+              <input class="input" name="lbl" placeholder="ชื่อเรียก (ไม่บังคับ)" style="flex:1;min-width:0"></div>
+            <div class="row nowrap"><label class="f" style="flex:1"><span>คนชวนได้</span><input class="input" name="rp" type="number" min="0" value="0"></label>
+              <label class="f" style="flex:1"><span>คนถูกชวนได้</span><input class="input" name="ip" type="number" min="0" value="0"></label>
+              <button class="btn red small" style="align-self:flex-end;min-height:48px">${icon('plus', 18, 2.4)}เพิ่ม</button></div></form>
+          ${codes.length ? `<div class="tscroll"><table class="t"><thead><tr><th>โค้ด</th><th>เจ้าของ</th><th style="text-align:center">คนชวนได้</th><th style="text-align:center">คนถูกชวนได้</th><th style="text-align:right">ใช้แล้ว</th><th></th></tr></thead><tbody>
+            ${codes.map(c => `<tr data-code="${esc(c.code)}"><td class="mono"><b>${esc(c.code)}</b></td><td>${esc(c.owner_name || c.label || '–')}${c.owner_name && c.label ? `<div class="small dim">${esc(c.label)}</div>` : ''}</td>
+              <td style="text-align:center">${cnum(c.referrer_points, 'rp', c.code + ' คนชวนได้', !c.owner)}</td><td style="text-align:center">${cnum(c.invitee_points, 'ip', c.code + ' คนถูกชวนได้')}</td>
+              <td style="text-align:right">${fmt(c.used)}</td><td style="text-align:right;white-space:nowrap"><button class="btn small" data-save>บันทึก</button> <button class="btn danger small" data-del aria-label="ลบ ${esc(c.code)}">${icon('trash', 16)}</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="dim">ยังไม่มี</div>'}`)}
+      </div></div></div>`;
     el.onchange = async e => {
       const i = e.target.closest('[data-k]'); if (!i) return;
       const v = i.type === 'checkbox' ? i.checked : Math.max(0, parseInt(i.value || '0', 10));
       try { await api.setSetting(i.dataset.k, v); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    $('#addc').onsubmit = async e => {
+      e.preventDefault(); const f = e.target;
+      try { const c = await rpc('admin_ref_code_save', { who: f.who.value.trim(), ref_pts: parseInt(f.rp.value || '0', 10), inv_pts: parseInt(f.ip.value || '0', 10), lbl: f.lbl.value.trim() || null }); IMF.toast('บันทึกโค้ด ' + c); referralTab(); }
+      catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onclick = async e => {
+      const tr = e.target.closest('tr[data-code]'); if (!tr) return;
+      const code = tr.dataset.code;
+      try {
+        if (e.target.closest('[data-del]')) { if (!confirm('ลบโค้ดพิเศษ ' + code + '?\nคนที่สมัครไปแล้วยังได้ Point เท่าเดิม')) return; await rpc('admin_ref_code_delete', { c: code }); }
+        else if (e.target.closest('[data-save]')) await rpc('admin_ref_code_save', { who: code, ref_pts: parseInt($('[data-c=rp]', tr).value || '0', 10), inv_pts: parseInt($('[data-c=ip]', tr).value || '0', 10), lbl: null });
+        else return;
+        IMF.toast('บันทึกแล้ว'); referralTab();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  // ---------------- settings ----------------
+  const toLocal = (v) => v ? new Date(v).toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' }).replace(' ', 'T').slice(0, 16) : '';
+  function minibar(s) {
+    return `<div class="minibar">${IMF.tabs({ logged_in: true, registered: true }, s).map(([h, ic, l, c]) => c ? `<span class="c"><i>${icon(ic, 16, 2)}</i>${l}</span>` : `<span>${icon(ic, 18)}${l}</span>`).join('')}</div>`;
+  }
+  async function settingsTab() {
+    const el = $('#t-settings');
+    let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
+    el.innerHTML = `<div class="stack"><h2 style="text-shadow:none">ตั้งค่า</h2><div class="acols">
+      <div>${sec('users', 'ลงทะเบียน', srow('รอบนิสิตวิศวฯ', toggle('eng_round_open', s.eng_round_open)) + srow('รอบทั่วไป', toggle('general_round_open', s.general_round_open)) + srow('บุคคลภายนอก', toggle('allow_external', s.allow_external)))}
+        ${sec('ticket', 'วันงาน', srow('สแกนแลกของรางวัล', toggle('redeem_open', s.redeem_open)) + srow('เป้าหมายจำนวนคน', `<input class="numin" type="number" min="0" data-k="target" value="${esc(s.target)}" style="width:110px">`))}</div>
+      <div>${sec('home', 'เปิด / ปิดหน้า', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open)) + srow('ของรางวัล', toggle('rewards_open', s.rewards_open))
+          + srow('บัตรเข้างาน', toggle('ticket_open', s.ticket_open))
+          + srow('นับถอยหลังบัตรถึง', `<input class="input" type="datetime-local" data-k="ticket_countdown_at" value="${toLocal(s.ticket_countdown_at)}" style="width:auto;max-width:210px;color-scheme:dark;padding:8px 10px">`)
+          + srow('แผนผังงาน', toggle('map_open', s.map_open)))}</div>
+      <div>${sec('user', 'แถบเมนูตอนนี้', `<div id="mini" style="margin-top:8px">${minibar(s)}</div>`)}</div>
+    </div></div>`;
+    el.onchange = async e => {
+      const i = e.target.closest('[data-k]'); if (!i) return;
+      if (i.type === 'datetime-local' && !i.value) return;
+      let v = i.type === 'checkbox' ? i.checked : i.type === 'datetime-local' ? i.value + ':00+07:00' : Math.max(0, parseInt(i.value || '0', 10));
+      try { await api.setSetting(i.dataset.k, v); s[i.dataset.k] = v; $('#mini').innerHTML = minibar(s); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
 
@@ -346,7 +422,7 @@
       <div class="card tscroll" style="margin-top:14px"><div class="card-title"><h3>กิจกรรมสะสม Point</h3></div>
       <table class="t"><thead><tr><th>กิจกรรม</th><th>ได้ Point</th><th>รับซ้ำได้</th><th>เปิด</th><th></th></tr></thead><tbody>
       ${acts.concat([{ id: null, name: '', points: 1, active: true }]).map(arow).join('')}</tbody></table>
-      <div class="hint">ทีมงานเลือกกิจกรรมในหน้าสแกน → โหมด "ให้ Point" แล้วสแกน QR ของผู้ร่วมงาน · ปิดสวิตช์ "รับซ้ำได้" = แต่ละคนรับได้ครั้งเดียว</div></div>`;
+      <div class="hint">ทีมงานให้ Point ในหน้าสแกน · ปิด "รับซ้ำได้" = คนละครั้ง</div></div>`;
     el.onclick = async e => {
       const pick = e.target.closest('[data-pick]');
       if (pick) { const url = await pickImage(); if (url) { images[pick.dataset.pick] = url; pick.style.backgroundImage = `url('${url}')`; pick.textContent = ''; } return; }
@@ -366,40 +442,6 @@
           await api.activities.save(a);
         }
         IMF.toast('บันทึกแล้ว'); rewardsTab();
-      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
-    };
-  }
-
-  // ---------------- announcements ----------------
-  async function annTab() {
-    const el = $('#t-ann');
-    let list; try { list = await api.announcements(true); } catch (e) { return fail(el, e); }
-    el.innerHTML = `<form class="card stack" id="annf">
-        <h3>เพิ่มประกาศ (แสดงในหน้าหลัก)</h3>
-        <input class="input" name="title" placeholder="หัวข้อ" required>
-        <textarea class="input" name="body" rows="3" placeholder="รายละเอียด"></textarea>
-        <label class="check"><input type="checkbox" name="pinned"> ปักหมุดไว้บนสุด</label>
-        <button class="btn small" style="align-self:flex-start">เผยแพร่</button></form>
-      <div class="stack" style="margin-top:14px">${list.map(a => `<div class="card" data-id="${a.id}">
-        <div class="row" style="justify-content:space-between"><div><b>${a.pinned ? '📌 ' : ''}${esc(a.title)}</b>
-          <div class="small dim">${IMF.dateTH(a.created_at)} · ${a.published ? 'เผยแพร่อยู่' : 'ซ่อนอยู่'}</div></div>
-          <div class="row"><button class="btn ghost small" data-act="pin">${a.pinned ? 'เลิกปัก' : 'ปักหมุด'}</button>
-          <button class="btn ghost small" data-act="pub">${a.published ? 'ซ่อน' : 'เผยแพร่'}</button>
-          <button class="btn danger small" data-act="del">ลบ</button></div></div>
-        ${a.body ? `<p class="muted" style="white-space:pre-line;margin:10px 0 0">${esc(a.body)}</p>` : ''}</div>`).join('')}</div>`;
-    $('#annf').onsubmit = async e => {
-      e.preventDefault(); const f = e.target;
-      try { await api.saveAnnouncement({ title: f.title.value.trim(), body: f.body.value.trim(), pinned: f.pinned.checked, published: true }); IMF.toast('เผยแพร่แล้ว'); annTab(); }
-      catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
-    };
-    el.onclick = async e => {
-      const b = e.target.closest('[data-act]'); if (!b) return;
-      const id = Number(b.closest('[data-id]').dataset.id), a = list.find(x => x.id === id);
-      try {
-        if (b.dataset.act === 'del') { if (!confirm('ลบประกาศนี้?')) return; await api.deleteAnnouncement(id); }
-        if (b.dataset.act === 'pin') await api.saveAnnouncement({ id, pinned: !a.pinned });
-        if (b.dataset.act === 'pub') await api.saveAnnouncement({ id, published: !a.published });
-        annTab();
       } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1a0305">
-<title>อันดับกรุ๊ป · INTANIA MUSIC FEST</title>
+<title>อันดับกลุ่ม · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/config.js"></script>
@@ -12,35 +12,30 @@
 <script src="assets/app.js"></script>
 </head>
 <body>
-<main class="stage"><div class="inner stack" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+<main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
 
 <script>
 (async () => {
-  const { rpc, $, esc, fmt } = IMF;
+  const { api, rpc, $, esc, fmt } = IMF;
   const root = $('#root');
   const { info, settings } = await IMF.boot();
 
-  if (!settings.leaderboard_open && !info.is_admin) {
-    root.innerHTML = `<h1 class="page-title">อันดับกรุ๊ป</h1><div class="card center"><b>ปิดการแสดงอันดับแล้ว</b><div class="muted small">ขอบคุณทุกกรุ๊ปที่มาร่วมสนุก</div></div>`;
-    return;
-  }
-  root.innerHTML = `<h1 class="page-title">อันดับกรุ๊ป</h1>
-    <div class="center small muted">จำนวนคนที่ลงทะเบียนของแต่ละกรุ๊ป${settings.leaderboard_open ? '' : ' · <b>ปิดอยู่ (เห็นเฉพาะแอดมิน)</b>'}</div>
-    <div class="card"><ul class="list" id="groups"><li><div class="spinner"></div></li></ul></div>`;
+  if (!settings.leaderboard_open && !info.is_admin) { root.innerHTML = IMF.comingSoon(); return; }
+  const me = info.registered ? await api.myProfile().catch(() => null) : null;
+  root.innerHTML = `<div class="ph"><h1>อันดับกลุ่ม</h1>${settings.leaderboard_open ? '' : '<span class="chip warn">ปิดอยู่ · แอดมินเห็น</span>'}</div><ul class="lb" id="lb"><li><div class="spinner" style="margin:20px auto"></div></li></ul>`;
 
   async function load() {
     try {
       const rows = await rpc('group_leaderboard');
       const max = Math.max(1, ...rows.map(r => Number(r.registered)));
       let rank = 0, prev = null;
-      $('#groups').innerHTML = rows.map((r, i) => {
-        const n = Number(r.registered);
-        if (n !== prev) { rank = i + 1; prev = n; }
-        return `<li><div class="rank ${rank <= 3 && n > 0 ? 'top' : ''}">${rank}</div>
-          <div class="gbar"><i style="width:${n ? Math.max(18, n / max * 100) : 0}%"></i><span>${esc(r.group_code)}</span></div>
-          <div class="gval">${fmt(n)} คน</div></li>`;
+      $('#lb').innerHTML = rows.map((r, i) => {
+        const n = Number(r.registered); if (n !== prev) { rank = i + 1; prev = n; }
+        const mine = me && me.group_code === r.group_code;
+        return `<li class="${mine ? 'me' : ''}"><span class="rk ${rank <= 3 && n ? 'm' + rank : ''}">${rank}</span><span class="gn">Group ${esc(r.group_code)}</span>
+          <span class="bar"><i style="width:${n / max * 100}%"></i></span>${mine ? '<span class="tag">กลุ่มของคุณ</span>' : ''}<span class="n">${fmt(n)}</span></li>`;
       }).join('');
-    } catch (e) { $('#groups').innerHTML = `<li class="dim">${esc(IMF.errMsg(e))}</li>`; }
+    } catch (e) { $('#lb').innerHTML = `<li class="dim">${esc(IMF.errMsg(e))}</li>`; }
   }
   load(); setInterval(load, 30000);
 })();

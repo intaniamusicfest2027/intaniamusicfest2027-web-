@@ -9,78 +9,113 @@
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
+<script src="assets/vendor/qrcode.js"></script>
 <script src="assets/app.js"></script>
 </head>
 <body>
-<main class="stage"><div class="inner m stack" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
+<main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
 
 <script>
 (async () => {
-  const { api, rpc, $, $$, esc, fmt, REASON } = IMF;
+  const { api, rpc, $, $$, esc, fmt, icon } = IMF;
   const root = $('#root');
   const { info, settings } = await IMF.boot();
-  if (!settings.rewards_open && !info.is_admin) {
-    root.innerHTML = `<h1 class="page-title">ของรางวัล</h1>
-    ${settings.rewards_open ? '' : '<div class="center small muted"><b>หน้านี้ปิดอยู่ (เห็นเฉพาะแอดมิน)</b></div>'}<div class="card center"><b>เร็ว ๆ นี้</b><div class="muted small">ของรางวัลจะประกาศให้ทราบอีกครั้ง Point ที่สะสมไว้ยังอยู่ครบ</div></div>`;
-    return;
+
+  let me = info.registered ? await api.myProfile().catch(() => null) : null;
+  if (!settings.rewards_open && !info.is_admin) { root.innerHTML = IMF.comingSoon(me ? IMF.pointPill(me.points) : ''); return; }
+
+  let list = [], history = [], tab = 'all';
+  async function load() {
+    [list, history] = await Promise.all([api.rewards.list(), me ? rpc('my_points_history').catch(() => []) : []]);
+    if (me) me = await api.myProfile().catch(() => me);
   }
-  let list, acts = [], me = null, history = [];
-  try {
-    [list, acts] = await Promise.all([api.rewards.list(), api.activities.list().catch(() => [])]);
-    if (info.registered) [me, history] = await Promise.all([api.myProfile().catch(() => null), rpc('my_points_history').catch(() => [])]);
-  } catch (e) { root.innerHTML = `<div class="card" style="margin-top:60px">${esc(IMF.errMsg(e))}</div>`; return; }
+  try { await load(); } catch (e) { root.innerHTML = `<div class="card" style="margin-top:60px">${esc(IMF.errMsg(e))}</div>`; return; }
 
-  const stockTxt = (r) => r.stock != null && r.stock <= 0 ? 'หมดแล้ว' : r.stock != null ? 'เหลือ ' + fmt(r.stock) + ' ชิ้น' : 'มีจำนวนจำกัด';
-  const how = `<div class="card small"><b>วิธีแลก</b> · นำ QR ใน<a href="me.html">บัตรของฉัน</a>ไปที่จุดแลกของรางวัลในวันงาน ทีมงานจะสแกนและตัด Point ให้ (แลกผ่านเว็บไม่ได้)</div>`;
+  const redeemed = (r) => history.some(h => h.reason === 'redeem' && h.detail === r.name);
+  function state(r) {
+    if (!me) return ['login', 'เข้าสู่ระบบ'];
+    if (r.repeatable === false && redeemed(r)) return ['got', 'แลกแล้ว'];
+    if (r.stock != null && r.stock <= 0) return ['no', 'หมดแล้ว'];
+    if (me.points < r.cost) return ['no', 'Point ไม่พอ'];
+    if (!settings.redeem_open) return ['no', 'ยังไม่เปิดแลก'];
+    return ['go', 'แลก'];
+  }
 
-  root.innerHTML = `<h1 class="page-title">ของรางวัล</h1>
-    ${me ? `<div class="card row" style="justify-content:space-between"><span class="muted">Point ของฉัน</span><b style="font-size:30px;line-height:1">${fmt(me.points)}</b></div>` : ''}
-    <div class="subtabs" id="st">
-      <button data-t="rewards" class="on">ของรางวัล</button><button data-t="earn">วิธีสะสม Point</button>${me ? '<button data-t="history">ประวัติ Point</button>' : ''}
-    </div>
+  function render() {
+    const shown = tab === 'can' ? list.filter(r => state(r)[0] === 'go') : list;
+    const hist = history.filter(h => h.reason === 'redeem');
+    root.innerHTML = `<div class="ph"><h1>ของรางวัล</h1>${me ? IMF.pointPill(me.points) : ''}</div>
+      <div class="stack" style="margin-top:0">
+      ${!settings.rewards_open ? '<span class="chip warn">หน้าของรางวัลปิดอยู่ · แอดมินเห็น</span>' : ''}
+      <div class="banner">${icon('pin', 22, 2)}แลกได้ที่จุดแลกของรางวัลเท่านั้น</div>
+      <div class="chips" id="chips">${[['all', 'ทั้งหมด'], ['can', 'แลกได้'], ...(me ? [['hist', 'ประวัติการแลก']] : [])].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      ${tab === 'hist'
+        ? `<div class="card">${hist.length ? `<ul class="list small">${hist.map(h => `<li><div style="flex:1"><b>${esc(h.detail || '')}</b><div class="dim">${IMF.dateTH(h.created_at)}</div></div><b style="color:var(--bad)">${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`
+        : shown.length ? `<div class="rw-grid">${shown.map(r => {
+            const [k, label] = state(r);
+            const btn = k === 'login' ? `<a class="act go" href="register.html">${label}</a>`
+              : k === 'go' ? `<button class="act go" data-redeem="${r.id}">${label}</button>`
+              : `<span class="act ${k}">${k === 'got' ? icon('check', 16, 2.4) : ''}${label}</span>`;
+            return `<div class="rw"><div class="pic" data-info="${r.id}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 34, 1.5)}</div>
+              <div><div class="nm">${esc(r.name)}</div><div class="ct">${fmt(r.cost)} Point${r.stock != null ? ` · เหลือ ${fmt(r.stock)}` : ''}</div></div>${btn}</div>`;
+          }).join('')}</div>` : '<div class="card center dim">ยังไม่มี</div>'}
+      </div>`;
+  }
+  render();
 
-    <section id="p-rewards" class="stack">${how}
-      ${list.length ? `<div class="rewards">${list.map(r => {
-        const out = r.stock != null && r.stock <= 0;
-        return `<div class="reward ${out ? 'out' : ''}" data-id="${r.id}">
-          <div class="pic" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : '🎁'}</div>
-          <div class="body"><div class="nm">${esc(r.name)}</div>
-            <div class="cost">${fmt(r.cost)} Point</div><div class="st">${stockTxt(r)}</div></div></div>`;
-      }).join('')}</div>` : '<div class="card center muted">ของรางวัลจะประกาศเร็ว ๆ นี้</div>'}
-    </section>
-
-    <section id="p-earn" class="stack hide">
-      <div class="card stack"><h3>ชวนเพื่อน</h3><div class="muted">ส่งรหัสชวนเพื่อนของคุณให้เพื่อนกรอกตอนลงทะเบียน ได้ Point ทั้งคนชวนและคนถูกชวน</div>
-        <a class="btn ghost small" style="align-self:flex-start" href="${me ? 'me.html' : 'register.html'}">${me ? 'ดูรหัสของฉัน' : 'ลงทะเบียนรับรหัส'}</a></div>
-      ${acts.length ? `<div class="card"><h3 style="margin-bottom:6px">กิจกรรมในงาน</h3><ul class="list">${acts.map(a => `<li><div style="flex:1">${esc(a.name)}</div><span class="small dim">${a.repeatable ? 'รับซ้ำได้' : '1 ครั้ง/คน'}</span><b style="color:var(--ok)">+${fmt(a.points)} Point</b></li>`).join('')}</ul>
-        <div class="hint">ร่วมกิจกรรมแล้วให้ทีมงานสแกน QR ในบัตรของคุณ</div></div>` : '<div class="card muted center">กิจกรรมสะสม Point อื่น ๆ จะประกาศเร็ว ๆ นี้</div>'}
-    </section>
-
-    <section id="p-history" class="hide">
-      <div class="card">${history.length ? `<ul class="list small">${history.map(h => `<li>
-        <div style="flex:1"><b>${esc(REASON[h.reason] || h.reason)}</b>${h.detail ? ` <span class="muted">· ${esc(h.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(h.created_at)}</div></div>
-        <b style="color:${h.delta > 0 ? 'var(--ok)' : 'var(--bad)'}">${h.delta > 0 ? '+' : ''}${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มีประวัติ Point</div>'}</div>
-    </section>`;
-
-  $('#st').onclick = e => {
-    const b = e.target.closest('button'); if (!b) return;
-    $$('#st button').forEach(x => x.classList.toggle('on', x === b));
-    ['rewards', 'earn', 'history'].forEach(t => { const s = $('#p-' + t); if (s) s.classList.toggle('hide', t !== b.dataset.t); });
-  };
-
-  // tap a reward → detail pop-up
   root.addEventListener('click', e => {
-    const card = e.target.closest('.reward[data-id]'); if (!card) return;
-    const r = list.find(x => x.id == card.dataset.id);
-    IMF.modal(`<div class="stack">
-      ${r.image ? `<img src="${esc(r.image)}" alt="" style="width:100%;border-radius:14px">` : ''}
-      <h2>${esc(r.name)}</h2>
-      ${r.description ? `<div class="muted" style="white-space:pre-line">${esc(r.description)}</div>` : ''}
-      <div class="row" style="justify-content:space-between"><b style="font-size:24px;color:var(--red-ink)">${fmt(r.cost)} Point</b><span class="muted">${stockTxt(r)}</span></div>
-      ${me ? `<div class="small muted">${me.points >= r.cost ? 'Point ของคุณพอแลกแล้ว ✓' : `คุณมี ${fmt(me.points)} Point ขาดอีก ${fmt(r.cost - me.points)} Point`}</div>` : ''}
-      <div class="small muted">แลกได้ที่จุดแลกของรางวัลในวันงาน โดยให้ทีมงานสแกน QR ในบัตรของคุณ</div>
-      <button class="btn ghost block" data-close>ปิด</button></div>`);
+    const c = e.target.closest('#chips button'); if (c) { tab = c.dataset.t; render(); return; }
+    const inf = e.target.closest('[data-info]');
+    if (inf) {
+      const r = list.find(x => x.id == inf.dataset.info);
+      IMF.modal(`<div class="stack">${r.image ? `<img src="${esc(r.image)}" alt="" style="width:100%;border-radius:14px">` : ''}<h2>${esc(r.name)}</h2>
+        ${r.description ? `<div class="muted" style="white-space:pre-line">${esc(r.description)}</div>` : ''}<b style="font-size:22px;color:var(--red-ink)">${fmt(r.cost)} Point</b>
+        <button class="btn ghost block" data-close>ปิด</button></div>`);
+      return;
+    }
+    const b = e.target.closest('[data-redeem]'); if (b) startRedeem(list.find(x => x.id == b.dataset.redeem), b);
   });
+
+  // ---------- redeem: show a QR, wait for staff to scan it ----------
+  async function startRedeem(r, btn) {
+    btn.disabled = true;
+    let req;
+    try { req = await rpc('my_redeem_start', { reward: r.id }); }
+    catch (e) { btn.disabled = false; IMF.toast(IMF.errMsg(e), true); return; }
+    let watcher = null, timer = null, finished = false;
+    const m = IMF.modal(`<div class="stack">
+      <div class="rq-head"><span class="ph2" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 26, 2)}</span>
+        <div style="flex:1"><b>${esc(r.name)}</b><span class="muted">${fmt(r.cost)} Point</span></div></div>
+      <div class="center" style="font-weight:700;font-size:16px">ให้ Staff ที่จุดแลกของรางวัลสแกน</div>
+      <div class="qr" id="rqr">${IMF.qrSvg(req.code)}</div>
+      <div class="center"><span class="wait" id="rwait"><i></i><span>รอสแกน · 3:00</span></span></div>
+      <button class="btn ghost block" data-close>ยกเลิก</button></div>`, {
+      onClose: () => { clearInterval(timer); if (watcher) watcher.stop(); if (!finished) rpc('my_redeem_cancel', { tok: req.token }).catch(() => {}); btn.disabled = false; }
+    });
+    const until = Date.now() + req.expires_in * 1000;
+    timer = setInterval(() => {
+      const left = Math.max(0, Math.round((until - Date.now()) / 1000));
+      const w = $('#rwait', m.el); if (!w) return;
+      if (!left) { clearInterval(timer); w.innerHTML = '<span>QR หมดอายุ</span>'; $('#rqr', m.el).style.opacity = .2; return; }
+      w.lastElementChild.textContent = `รอสแกน · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    }, 1000);
+    // the staff scan finishes the request → this pop-up turns into "done" straight away
+    watcher = IMF.watch({
+      table: 'redeem_requests', filter: 'id=eq.' + req.id, every: 2000,
+      check: async () => {
+        const st = await rpc('my_redeem_status', { tok: req.token });
+        if (!st || st.status !== 'done') return false;
+        finished = true; m.close();
+        if (navigator.vibrate) navigator.vibrate([80, 60, 120]);
+        IMF.modal(`<div class="done"><span class="okdisc">${icon('check', 60, 2.8)}</span><h2>แลกสำเร็จ!</h2>
+          <div class="what">${esc(st.reward)}</div><div class="muted">−${fmt(st.cost)} Point</div>
+          <div class="note">รับของจาก Staff ได้เลย</div>
+          <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`);
+        await load().catch(() => {}); render();
+        return true;
+      }
+    });
+  }
 })();
 </script>
 </body>

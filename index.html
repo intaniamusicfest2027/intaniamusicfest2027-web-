@@ -17,92 +17,72 @@
 <script src="assets/app.js"></script>
 </head>
 <body>
-<main class="stage">
-  <div class="home">
-    <div class="poster">
-      <div class="hero"><img src="assets/hero.jpg" width="1080" height="572" alt="INTANIA MUSIC FEST"></div>
-      <div class="pad stack">
-        <div class="tagline">กลับมาอีกครั้ง เทศกาลดนตรีสุดยิ่งใหญ่<span class="band">ที่ชาวอินทาเนีย และเพื่อนจุฬาฯ ห้ามพลาด !</span></div>
-        <div>
-          <div class="date">28 มกราคม 2570</div>
-          <div class="time">17:00 – 22:00 น.</div>
-          <div class="place">ณ ลานอินทาเนีย คณะวิศวกรรมศาสตร์<br>จุฬาลงกรณ์มหาวิทยาลัย</div>
-        </div>
-      </div>
-    </div>
-    <div class="side pad stack">
-      <div class="countdown" id="countdown" aria-label="นับถอยหลังถึงวันงาน"></div>
-      <div class="row" style="justify-content:center">
-        <a class="btn ghost small" id="gcal" target="_blank" rel="noopener">+ Google Calendar</a>
-        <a class="btn ghost small" id="ical">+ Apple Calendar</a>
-      </div>
-      <div id="cta" class="stack"><div class="spinner"></div></div>
-      <div id="invite"></div>
-      <div id="board"></div>
-      <div id="anns" class="stack"></div>
-      <div class="hashtag">#IntaniaMusicFest2027</div>
-    </div>
-  </div>
-</main>
+<main class="stage" id="root"><div class="spinner" style="margin-top:160px"></div></main>
 
 <script>
 (async () => {
-  const { api, $, esc, fmt, EVENT } = IMF;
-  const cal = IMF.calendarLinks();
-  $('#gcal').href = cal.google; $('#ical').href = cal.ics;
+  const { api, rpc, $, esc, fmt, EVENT, icon, REASON } = IMF;
+  const root = $('#root');
+  const { info, settings: s } = await IMF.boot({ noArt: true });
 
-  const end = new Date(EVENT.start).getTime();
-  const tick = () => {
-    let s = Math.max(0, Math.floor((end - Date.now()) / 1000));
-    const d = Math.floor(s / 86400); s %= 86400;
-    const h = Math.floor(s / 3600); s %= 3600;
-    const m = Math.floor(s / 60); s %= 60;
-    $('#countdown').innerHTML = [[d, 'วัน'], [h, 'ชั่วโมง'], [m, 'นาที'], [s, 'วินาที']]
-      .map(([v, l]) => `<div><b>${String(v).padStart(2, '0')}</b><span>${l}</span></div>`).join('');
-  };
-  tick(); setInterval(tick, 1000);
-
-  const { info, settings: s } = await IMF.boot({ overlay: true, noBrand: true });
-  const open = s.eng_round_open || s.general_round_open;
-
-  // register / my ticket
-  let cta;
-  if (info.registered) cta = `<a class="btn big block" href="me.html">ดู<b>บัตรของฉัน</b></a>`;
-  else if (s.general_round_open) cta = `<a class="btn big block" href="register.html"><b>ลงทะเบียน</b>เข้างาน</a>`;
-  else if (s.eng_round_open) cta = `<a class="btn big block" href="register.html"><b>ลงทะเบียน</b>รอบนิสิตวิศวะ</a>
-      <div class="small muted center">ใช้อีเมลจุฬาฯ (@student.chula.ac.th) ของนิสิตคณะวิศวกรรมศาสตร์</div>`;
-  else cta = `<div class="card center"><b>ยังไม่เปิดลงทะเบียน</b><div class="muted small">ติดตามได้ที่ IG @${esc(EVENT.ig)}</div></div>`;
-  $('#cta').innerHTML = cta;
-
-  // invite friends
-  if (s.referral_open) {
-    if (info.registered) {
-      const me = await api.myProfile().catch(() => null);
-      if (me) $('#invite').innerHTML = IMF.inviteCard(me, s);
-    } else if (open) {
-      $('#invite').innerHTML = `<div class="card stack center">
-        <h3>ชวนเพื่อน รับ Point</h3>
-        <div class="muted">ลงทะเบียนแล้วรับ<b>รหัสชวนเพื่อน</b>ของตัวเอง เพื่อนใช้รหัสตอนลงทะเบียน ได้ Point ทั้งคู่ สะสมไว้แลกของรางวัลในวันงาน</div>
-        ${s.rewards_open ? '<a class="btn ghost small" href="rewards.html" style="align-self:center">ดูของรางวัล</a>' : ''}</div>`;
-    }
+  // ---------- not registered yet: the Save-the-date page ----------
+  if (!info.registered) {
+    const open = s.eng_round_open || s.general_round_open;
+    const cal = IMF.calendarLinks();
+    let cta;
+    if (open) cta = `<a class="btn red big block" href="register.html">${info.logged_in ? 'ลงทะเบียน' : 'ลงทะเบียน / เข้าสู่ระบบ'}</a>`;
+    else cta = `<div class="card center"><b>ยังไม่เปิดลงทะเบียน</b></div>${info.logged_in ? '' : '<a class="btn ghost block" href="register.html">เข้าสู่ระบบ</a>'}`;
+    root.innerHTML = `<div class="home">
+      <div class="poster">
+        <div class="hero"><img src="assets/hero.jpg" width="1080" height="572" alt="INTANIA MUSIC FEST"></div>
+        <div class="pad stack">
+          <div class="tagline">กลับมาอีกครั้ง เทศกาลดนตรีสุดยิ่งใหญ่<span class="band">ที่ชาวอินทาเนีย และเพื่อนจุฬาฯ ห้ามพลาด !</span></div>
+          <div>
+            <div class="date">28 มกราคม 2570</div>
+            <div class="time">17:00 – 22:00 น.</div>
+            <div class="place">ณ ลานอินทาเนีย คณะวิศวกรรมศาสตร์<br>จุฬาลงกรณ์มหาวิทยาลัย</div>
+          </div>
+        </div>
+      </div>
+      <div class="side pad stack">
+        ${IMF.countdownHTML()}
+        <div class="calbtns">
+          <a class="calbtn" href="${cal.google}" target="_blank" rel="noopener"><img src="assets/gcal.png" alt="">Google Calendar</a>
+          <a class="calbtn" href="${cal.ics}"><img class="apple" src="assets/apple.png" alt="">Apple Calendar</a>
+        </div>
+        ${cta}
+      </div>
+    </div>`;
+    IMF.startCountdown(root, EVENT.start);
+    return;
   }
 
-  // group ranking (only while the campaign page is open)
-  if (s.leaderboard_open) {
-    try {
-      const rows = (await IMF.rpc('group_leaderboard')).slice(0, 5);
-      const max = Math.max(1, ...rows.map(r => Number(r.registered)));
-      $('#board').innerHTML = `<div class="card"><div class="card-title"><h3>อันดับกรุ๊ป</h3><a class="small muted" href="leaderboard.html">ดูทั้งหมด →</a></div>
-        <ul class="list">${rows.map((r, i) => { const n = Number(r.registered); return `<li><div class="rank ${i < 3 && n ? 'top' : ''}">${i + 1}</div>
-          <div class="gbar"><i style="width:${n ? Math.max(18, n / max * 100) : 0}%"></i><span>${esc(r.group_code)}</span></div><div class="gval">${fmt(n)} คน</div></li>`; }).join('')}</ul></div>`;
-    } catch (e) {}
-  }
-
+  // ---------- registered: points and the invite campaign ----------
+  let me, history = [], friends = null;
   try {
-    const anns = await api.announcements();
-    if (anns.length) $('#anns').innerHTML = `<div class="card stack"><h3>ประกาศ</h3>${anns.map(a => `<div class="ann">
-      <div class="small dim">${a.pinned ? '📌 ' : ''}${IMF.dateTH(a.created_at)}</div><h3>${esc(a.title)}</h3>${a.body ? `<p>${esc(a.body)}</p>` : ''}</div>`).join('')}</div>`;
-  } catch (e) {}
+    me = await api.myProfile();
+    [history, friends] = await Promise.all([rpc('my_points_history').catch(() => []), s.referral_open ? rpc('my_friends').catch(() => null) : null]);
+  } catch (e) { root.innerHTML = `<div class="inner"><div class="card" style="margin-top:60px">${esc(IMF.errMsg(e))}</div></div>`; return; }
+  const sum = (r) => history.filter(h => h.reason === r).reduce((a, h) => a + h.delta, 0);
+
+  root.innerHTML = `<div class="art"></div><div class="inner stack" style="position:relative">
+    <img class="homelogo" src="assets/logo.png" alt="INTANIA MUSIC FEST">
+    <div class="hello"><span>สวัสดี</span> <b>${esc(me.nickname || me.first_name)}</b></div>
+    <div class="pcard"><div>
+      <div class="top"><span class="lbl">MY POINT</span>${me.group_code ? `<span class="grp">${icon('users', 14, 2)}Group ${esc(me.group_code)}</span>` : ''}</div>
+      <div class="num"><b>${fmt(me.points)}</b><span>PT</span></div>
+      <div class="brk"><div><b>+${fmt(sum('referral'))}</b><span>ชวนเพื่อน</span></div><div><b>+${fmt(sum('activity'))}</b><span>กิจกรรม</span></div><div><b>+${fmt(sum('signup_bonus'))}</b><span>โค้ดเพื่อน</span></div></div>
+      <div class="acts">
+        ${s.rewards_open ? `<a class="pbtn red" href="rewards.html">${icon('gift', 18, 2)}แลกของรางวัล</a>` : `<span class="pbtn soonish">${icon('gift', 17, 2)}ของรางวัลเร็วๆ นี้</span>`}
+        <button class="pbtn" id="hist">${icon('clock', 17, 2)}ประวัติ Point</button>
+      </div>
+    </div></div>
+    ${s.referral_open ? IMF.inviteCard(me, friends) : ''}
+  </div>`;
+
+  $('#hist').onclick = () => IMF.modal(`<div class="stack"><div class="row" style="justify-content:space-between"><h2>ประวัติ Point</h2><button class="btn ghost small" data-close>ปิด</button></div>
+    ${history.length ? `<ul class="list small">${history.map(h => `<li><div style="flex:1"><b>${esc(REASON[h.reason] || h.reason)}</b>${h.detail ? ` <span class="muted">· ${esc(h.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(h.created_at)}</div></div>
+      <b style="color:${h.delta > 0 ? '#0f9d58' : '#b3261e'}">${h.delta > 0 ? '+' : ''}${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`);
 })();
 </script>
 </body>
