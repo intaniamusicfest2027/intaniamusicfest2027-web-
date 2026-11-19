@@ -67,6 +67,8 @@
     BAD_REDEEM_FORMAT: 'โค้ดต้องเป็นตัวอักษรอังกฤษหรือตัวเลข 3–20 ตัว',
     CODE_TAKEN: 'โค้ดนี้ซ้ำกับโค้ดชวนเพื่อน ลองใช้คำอื่น',
     CODE_IN_USE: 'โค้ดนี้มีคนใช้แล้ว ลบไม่ได้ ให้ปิดสวิตช์ "เปิดใช้" แทน',
+    NOT_ENG_INVITE: 'โค้ดนี้ไม่ใช่โค้ดชวนของนิสิตวิศวะ',
+    ALREADY_INVITED: 'คุณมีผู้ชวนอยู่แล้ว ใส่โค้ดเพื่อนเพิ่มไม่ได้',
     NO_ENG_CODE: 'ยังไม่มีโค้ดนี้ หรือโค้ดนี้ไม่ได้ตั้งเป็นโค้ดวิศวะ (สร้างที่ Point → Redeem Code)'
   };
   // longest key first, so CODES_CLOSED is not read as CLOSED
@@ -84,7 +86,7 @@
   // ------------------------------------------------------------------
   const demo = (function () {
     if (!DEMO) return null;
-    const KEY = 'imf_demo_v8';
+    const KEY = 'imf_demo_v82';
     const FAC = { '21': 'วิศวกรรมศาสตร์', '22': 'อักษรศาสตร์', '23': 'วิทยาศาสตร์', '24': 'รัฐศาสตร์', '25': 'สถาปัตยกรรมศาสตร์', '26': 'พาณิชยศาสตร์และการบัญชี', '27': 'ครุศาสตร์', '28': 'นิเทศศาสตร์', '29': 'เศรษฐศาสตร์', '30': 'แพทยศาสตร์', '33': 'เภสัชศาสตร์', '34': 'นิติศาสตร์' };
     const firsts = ['ภูมิ','ต้นข้าว','มายด์','ปั้น','ฟ้า','ไนน์','บีม','แพรว','ภู','เฟิร์น','กาย','ข้าวหอม','ปลื้ม','อิง','ชิน','น้ำ','บอส','พลอย'];
     const lasts = ['ศรีสุข','วงศ์ใหญ่','ทองดี','สายสุวรรณ','บุญมา','เจริญผล','แก้วกาญจนา','สุขเกษม'];
@@ -113,7 +115,7 @@
       return {
         user: null,
         settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, points_signup_bonus_eng: 1, leaderboard_open: true, rewards_open: false, ticket_open: false, ticket_countdown_at: '2027-01-15T10:00:00+07:00', map_open: false, redeem_open: true, target: 12000,
-          eng_rewards_view: 'all', rewards_central_open: false, eng_unlock_referral: true, eng_unlock_code: true, codes_open: true },
+          eng_rewards_view: 'all', rewards_central_open: false, eng_unlock_referral: true, eng_unlock_code: true, codes_open: true, late_invite_open: true },
         ref_codes: [], redeem_requests: [], code_uses: [],
         redeem_codes: [{ code: 'ENGVIP', label: 'เชิญวิศวะ', points: 2, unlock_eng: true, max_uses: 100, active: true, created_at: new Date().toISOString() }, { code: 'IMF2027', label: 'โพสต์ IG', points: 1, unlock_eng: false, max_uses: null, active: true, created_at: new Date().toISOString() }],
         profiles, ledger, staff: [],
@@ -132,13 +134,13 @@
     const me = () => db.user && db.profiles.find(p => p.email === db.user.email);
     const fail = (c) => { throw new Error(c); };
     const full = (p) => p.first_name + ' ' + p.last_name;
-    const canEng = (p) => !!p && (p.category === 'eng'
+    const canEng = (p) => !!p && (p.category === 'eng' || !!p.eng_grant
       || (db.settings.eng_unlock_referral && (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng')
       || (db.settings.eng_unlock_code && db.code_uses.some(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng)));
-    const isEng = (p) => !!p && p.category === 'eng';
+    const isEng = (p) => !!p && (p.category === 'eng' || !!p.eng_grant);
     const invEng = (p) => (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng';
     const engCode = (p) => db.code_uses.some(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng);
-    const engTag = (p) => isEng(p) ? 'eng' : invEng(p) ? 'inv' : engCode(p) ? 'code' : 'none';
+    const engTag = (p) => p.category === 'eng' ? 'eng' : p.eng_grant ? 'grant' : invEng(p) ? 'inv' : engCode(p) ? 'code' : 'none';
     const engView = () => db.settings.eng_rewards_view || 'off';
     // can SEE / can REDEEM (same rules as the server)
     const rewardVisible = (p, w) => w.scope === 'eng' ? (engView() === 'all' || (engView() === 'eng' && isEng(p))) : !!db.settings.rewards_central_open;
@@ -198,14 +200,24 @@
         const m = me(), s = db.settings, adm = db.settings._demo_admin !== false, E = { scope: 'eng' };
         const vis = rewardVisible(m, E), ok = rewardOpen(m, E);
         return { eng_view: engView(), eng_open: vis, central_open: !!s.rewards_central_open, can_eng: ok, admin: adm,
-          can_unlock: !!(engView() === 'all' && !ok && m && s.codes_open && s.eng_unlock_code),
+          can_unlock: !!(engView() === 'all' && !ok && m && ((s.codes_open && s.eng_unlock_code) || (s.late_invite_open && s.eng_unlock_referral && !m.referred_by))),
           items: db.rewards.filter(w => w.active && (adm || rewardVisible(m, w))).sort((a, b) => (a.sort || 0) - (b.sort || 0) || a.cost - b.cost)
             .map(w => ({ ...w, scope: w.scope || 'all', open: rewardOpen(m, w), locked: w.scope === 'eng' && vis && !ok })) };
       },
       my_code_redeem({ c }) {
         const m = me(), k = String(c || '').trim().toUpperCase(); if (!m) fail('NOT_FOUND');
+        const rc = db.redeem_codes.find(x => x.code === k);
+        if (!rc) {
+          const inv = db.profiles.find(x => x.ref_code === k);
+          if (inv && db.settings.late_invite_open) {
+            if (inv.id === m.id) fail('BAD_REDEEM_CODE'); if (inv.category !== 'eng') fail('NOT_ENG_INVITE'); if (m.referred_by) fail('ALREADY_INVITED');
+            const was = canEng(m); m.referred_by = inv.id; m.used_code = m.used_code || k; save();
+            return { code: k, added: 0, points: m.points, invited_by: inv.nickname || inv.first_name, unlock_eng: !was && canEng(m) };
+          }
+          fail(!db.settings.codes_open && !db.settings.late_invite_open ? 'CODES_CLOSED' : 'BAD_REDEEM_CODE');
+        }
         if (!db.settings.codes_open) fail('CODES_CLOSED');
-        const rc = db.redeem_codes.find(x => x.code === k); if (!rc || !rc.active) fail('BAD_REDEEM_CODE');
+        if (!rc.active) fail('BAD_REDEEM_CODE');
         if (db.code_uses.some(u => u.code === k && u.user_id === m.id)) fail('CODE_USED');
         if (rc.max_uses && db.code_uses.filter(u => u.code === k).length >= rc.max_uses) fail('CODE_FULL');
         const was = canEng(m), now = new Date().toISOString();
@@ -341,7 +353,7 @@
             && (!f.points || (f.points === 'has' ? p.points > 0 : f.points === 'ge10' ? p.points >= 10 : p.points === 0)))
           .map(p => ({ ...p, friends: friends(p) }))
           .sort((a, b) => f.sort === 'points' ? b.points - a.points : f.sort === 'friends' ? b.friends - a.friends : f.sort === 'sid' ? String(a.student_id || '~').localeCompare(String(b.student_id || '~')) : b.created_at.localeCompare(a.created_at));
-        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, inv_eng: invEng(p), eng_code: engCode(p), total_count: rows.length }));
+        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, inv_eng: invEng(p), eng_code: engCode(p), eng_grant: !!p.eng_grant, total_count: rows.length }));
       },
       admin_person({ uid }) {
         const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND');
@@ -358,6 +370,7 @@
         if (!r || r.id === uid) fail('BAD_REF'); p.referred_by = r.id; p.used_code = r.ref_code; save();
         return { referrer: { name: full(r), ref_code: r.ref_code, category: r.category, group_code: r.group_code } };
       },
+      admin_set_eng_grant({ uid, g }) { const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND'); Object.assign(p, { eng_grant: !!g, eng_grant_by: g ? db.user.email : null, eng_grant_at: g ? new Date().toISOString() : null }); save(); return null; },
       admin_set_eng_code({ uid, c }) {
         const k = String(c || '').trim().toUpperCase();
         if (!k) { db.code_uses = db.code_uses.filter(u => !(u.user_id === uid && (db.redeem_codes.find(x => x.code === u.code) || {}).unlock_eng)); save(); return null; }
@@ -692,6 +705,7 @@
         m.close(); if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
         modal(`<div class="done"><span class="okdisc ${r.added ? 'star' : ''}">${icon(r.added ? 'star' : 'check', 56, 2.4)}</span><h2>ใช้โค้ดสำเร็จ!</h2>
           ${r.added ? `<div class="plus">+${fmt(r.added)} Point</div>` : ''}
+          ${r.invited_by ? `<div class="what">ได้รับเชิญจาก ${esc(r.invited_by)}</div>` : ''}
           ${r.unlock_eng ? `<div class="unl">${icon('gift', 18, 2)}ปลดล็อกของรางวัลวิศวะแล้ว</div>` : ''}
           <div class="muted">รวม ${fmt(r.points)} Point</div>
           <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`, { onClose: () => onDone && onDone(r) });

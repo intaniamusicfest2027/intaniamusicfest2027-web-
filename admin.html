@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>หลังบ้าน · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=80">
+<link rel="stylesheet" href="assets/style.css?v=82">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/vendor/chart.umd.js"></script>
-<script src="assets/app.js?v=80"></script>
+<script src="assets/app.js?v=82"></script>
 <style>
   .chart-box { position: relative; height: 230px; }
   .legend span:nth-child(3n+1) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -53,7 +53,7 @@
   .qchips button { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.35); color: #f0c9cc; font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
   .qchips button.on { background: #fff; color: #8e0a10; border-color: #fff; }
   .tagb { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
-  .tagb.eng { background: #d8141c; color: #fff; } .tagb.inv { background: #0b3d22; color: #4be08c; } .tagb.code { background: #4a3300; color: #ffd27a; } .tagb.none { background: rgba(255,255,255,.08); color: #d9b8bb; }
+  .tagb.eng { background: #d8141c; color: #fff; } .tagb.grant { background: #1d3a6b; color: #b9d4ff; } .tagb.inv { background: #0b3d22; color: #4be08c; } .tagb.code { background: #4a3300; color: #ffd27a; } .tagb.none { background: rgba(255,255,255,.08); color: #d9b8bb; }
   .pcard2 .tx .bdg { display: block; margin-top: 4px; }
   .engsec { border: 1px solid #e3cfd1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .engsec h3 { display: flex; align-items: center; gap: 6px; margin: 0; }
@@ -203,8 +203,9 @@
       <div class="card sec vis"><h3><span class="engb2">ENG</span>Exclusive วิศวะ</h3>
         <div class="lbl">ใครเห็น</div>${seg('eng_rewards_view', view, [['off', 'ปิด'], ['eng', 'เฉพาะวิศวะ'], ['all', 'ทุกคน']])}
         ${view === 'all' ? `<div class="lbl">ใครแลกได้</div><div class="subbox">
-          ${srow('นิสิตวิศวะ', '<span class="schip off">' + icon('lock', 13, 2.4) + 'ได้เสมอ</span>')}
-          ${srow('คนที่วิศวะชวน', toggle('eng_unlock_referral', s.eng_unlock_referral))}
+          ${srow('นิสิตวิศวะ + คนที่แอดมินมอบสิทธิ์', '<span class="schip off">' + icon('lock', 13, 2.4) + 'ได้เสมอ</span>')}
+          ${srow('คนที่วิศวะชวน', toggle('eng_unlock_referral', s.eng_unlock_referral), 'ใส่โค้ดเพื่อนวิศวะตอนลงทะเบียน')}
+          ${s.eng_unlock_referral ? srow('↳ ใส่โค้ดเพื่อนวิศวะทีหลังได้', toggle('late_invite_open', s.late_invite_open), 'ลงทะเบียนแล้วค่อยกรอกโค้ดเพื่อนวิศวะในช่อง "กรอกโค้ด" (เฉพาะคนที่ยังไม่มีผู้ชวน)') : ''}
           ${srow('คนที่ใช้โค้ดวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code), 'สร้างโค้ดได้ที่ Point → Redeem Code')}</div>` : ''}
         <div class="sumbox">${icon('eye', 18)}<span>${summary}</span></div></div>
       <div>
@@ -343,7 +344,7 @@
     ['gender', 'เพศ', Object.entries(GENDER)],
     ['points', 'Point', [['has', 'มี Point'], ['ge10', '10 ขึ้นไป'], ['zero', '0 Point']]],
     ['invited', 'มาจาก', [['yes', 'ถูกชวน / ใช้โค้ดชวน'], ['eng', 'วิศวะชวน'], ['no', 'สมัครเอง']]],
-    ['eng', 'สิทธิ์ของวิศวะ', [['eng', 'นิสิตวิศวะ'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์']]],
+    ['eng', 'สิทธิ์ของวิศวะ', [['eng', 'นิสิตวิศวะ'], ['grant', 'แอดมินมอบ'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์']]],
     ['sort', 'เรียงตาม', [['points', 'Point มากสุด'], ['friends', 'ชวนมากสุด'], ['sid', 'รหัสนิสิต']]]
   ];
   const fLabel = (k, v) => { const d = FILTERS.find(x => x[0] === k); const o = d[2].find(x => x[0] === v); return o ? o[1] : v; };
@@ -357,7 +358,7 @@
         <div class="row" style="justify-content:space-between"><h2 style="text-shadow:none">รายชื่อ</h2><span class="muted" id="pinfo"></span></div>
         <div class="row nowrap"><form id="search" class="row nowrap" style="flex:1;min-width:0"><input class="input" name="q" placeholder="ค้นหาชื่อ รหัสนิสิต เบอร์ หรือโค้ด" style="flex:1;min-width:0"><button class="btn small">${icon('search', 18)}</button></form>
           <button class="btn ghost small ftoggle" id="ftog">${icon('filter', 17)}ตัวกรอง</button></div>
-        <div class="qchips" id="qchips">${[['', 'ทั้งหมด'], ['eng', 'ENG'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์ ENG']].map(([v, l]) => `<button type="button" data-q="${v}">${l}</button>`).join('')}</div>
+        <div class="qchips" id="qchips">${[['', 'ทั้งหมด'], ['eng', 'ENG'], ['grant', 'แอดมินมอบ'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์ ENG']].map(([v, l]) => `<button type="button" data-q="${v}">${l}</button>`).join('')}</div>
         <div class="card fpanel closed stack" id="fpanel">
           <div class="fgrid">${FILTERS.map(([k, l, opts]) => `<label>${l}<select data-f="${k}"><option value="">${k === 'sort' ? 'ลงทะเบียนล่าสุด' : 'ทั้งหมด'}</option>${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>`).join('')}</div>
           <div class="row" id="fchips"></div>
@@ -404,7 +405,7 @@
     } catch (e) { fail($('#ptable'), e); }
   }
 
-  const engBadge = (r) => r.category === 'eng' ? '<span class="tagb eng">ENG</span>' : r.inv_eng ? '<span class="tagb inv">วิศวะชวน</span>'
+  const engBadge = (r) => r.category === 'eng' ? '<span class="tagb eng">ENG</span>' : r.eng_grant ? '<span class="tagb grant">แอดมินมอบ</span>' : r.inv_eng ? '<span class="tagb inv">วิศวะชวน</span>'
     : r.eng_code ? '<span class="tagb code">โค้ดวิศวะ</span>' : '<span class="tagb none">ไม่มีสิทธิ์ ENG</span>';
   async function personModal(uid) {
     let d, st;
@@ -412,12 +413,15 @@
     const p = d.profile, ref = d.referrer, ecodes = d.eng_codes || [];
     const isEngP = p.category === 'eng', invEng = !!(ref && ref.category === 'eng'), hasCode = ecodes.length > 0;
     const view = st.eng_rewards_view || 'off';
-    const why = [invEng && st.eng_unlock_referral ? 'ถูกวิศวะชวน' : '', hasCode && st.eng_unlock_code ? 'ใช้โค้ดวิศวะ' : ''].filter(Boolean);
-    const canNow = isEngP || (view === 'all' && why.length > 0);
+    const grant = !!p.eng_grant;
+    const why = [grant ? 'แอดมินมอบสิทธิ์' : '', invEng && st.eng_unlock_referral ? 'ถูกวิศวะชวน' : '', hasCode && st.eng_unlock_code ? 'ใช้โค้ดวิศวะ' : ''].filter(Boolean);
+    const canNow = isEngP || (grant && view !== 'off') || (view === 'all' && why.length > 0);
     const resBox = isEngP ? `<div class="res ok">${icon('check', 20, 2.8)}<div><b>นิสิตวิศวะ</b><span>แลกของรางวัลวิศวะได้เสมอ</span></div></div>`
       : canNow ? `<div class="res ok">${icon('check', 20, 2.8)}<div><b>แลกได้</b><span>${why.join(' และ')}</span></div></div>`
       : `<div class="res no">${icon('lock', 18, 2.2)}<div><b>แลกไม่ได้</b><span>${view === 'off' ? 'ของรางวัลวิศวะปิดอยู่' : view === 'eng' ? 'ตอนนี้ตั้งเป็น "เฉพาะวิศวะ"' : (invEng || hasCode) ? 'ช่องทางที่ใช้ยังไม่ได้เปิดในหน้าของรางวัล' : 'ไม่ได้ถูกวิศวะชวน และยังไม่ได้ใช้โค้ดวิศวะ'}</span></div></div>`;
     const engSec = `<div class="engsec"><h3><span class="engb2">ENG</span>สิทธิ์แลกของรางวัลวิศวะ</h3>${resBox}
+      <div class="erow"><div class="et"><b>มอบสิทธิ์โดยแอดมิน</b><span>${grant ? 'มอบโดย ' + esc(p.eng_grant_by || 'แอดมิน') + (p.eng_grant_at ? ' · ' + IMF.dateTH(p.eng_grant_at) : '') : 'แลก ENG ได้ทันที ไม่ต้องมีผู้ชวนหรือโค้ด'}</span></div>
+        ${isEngP ? '' : `<label class="switch"><input type="checkbox" id="grantSw" ${grant ? 'checked' : ''} aria-label="มอบสิทธิ์แลกของรางวัลวิศวะ"><i></i></label>`}</div>
       <div class="erow"><div class="et"><b>ถูกเชิญโดย</b><span>${ref ? `${esc(ref.name)} · ${esc(CATEGORY[ref.category] || '')}${ref.group_code ? ' · Group ' + esc(ref.group_code) : ''} · ${esc(ref.ref_code)}` : 'ไม่มี'}</span></div>
         <button class="btn ghost small" id="setRef">${icon('edit', 15)}${ref ? 'เปลี่ยน' : 'ใส่'}</button>${ref ? '<button class="btn ghost small" id="clrRef">ลบ</button>' : ''}</div>
       <div class="erow"><div class="et"><b>Redeem Code วิศวะ</b><span>${hasCode ? ecodes.map(c => esc(c.code) + ' · ' + IMF.dateTH(c.at)).join(', ') : 'ยังไม่ได้ใช้'}</span></div>
@@ -445,6 +449,7 @@
     </div>`, { lg: true });
     $('#edit', m.el).onclick = () => { m.close(); editModal(uid, p); };
     const redo = async (fn) => { try { await fn(); IMF.toast('บันทึกแล้ว'); m.close(); personModal(uid); people(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); } };
+    if ($('#grantSw', m.el)) $('#grantSw', m.el).onchange = e => redo(() => rpc('admin_set_eng_grant', { uid, g: e.target.checked }));
     if ($('#setRef', m.el)) $('#setRef', m.el).onclick = () => { const w = prompt('ผู้ชวน: ใส่โค้ดชวน รหัสนิสิต หรืออีเมลของผู้ชวน'); if (w && w.trim()) redo(() => rpc('admin_set_referrer', { uid, who: w.trim() })); };
     if ($('#clrRef', m.el)) $('#clrRef', m.el).onclick = () => { if (confirm('ลบผู้ชวนของคนนี้?')) redo(() => rpc('admin_set_referrer', { uid, who: '' })); };
     if ($('#setCode', m.el)) $('#setCode', m.el).onclick = async () => {
