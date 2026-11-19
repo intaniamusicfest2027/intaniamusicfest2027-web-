@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ของรางวัล · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=66">
+<link rel="stylesheet" href="assets/style.css?v=70">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/vendor/qrcode.js"></script>
-<script src="assets/app.js?v=66"></script>
+<script src="assets/app.js?v=70"></script>
 </head>
 <body>
 <main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
@@ -23,17 +23,27 @@
   const { info, settings } = await IMF.boot();
 
   let me = info.registered ? await api.myProfile().catch(() => null) : null;
-  if (!settings.rewards_open && !info.is_admin) { root.innerHTML = IMF.comingSoon(me ? IMF.pointPill(me.points) : ''); return; }
 
-  let list = [], history = [], tab = 'all';
+  // my_rewards decides what this person may see: Engineering rewards stay hidden unless unlocked
+  let R = null, list = [], history = [], tab = 'all';
   async function load() {
-    [list, history] = await Promise.all([api.rewards.list(), me ? rpc('my_points_history').catch(() => []) : []]);
+    [R, history] = await Promise.all([rpc('my_rewards'), me ? rpc('my_points_history').catch(() => []) : []]);
+    list = R.items;
     if (me) me = await api.myProfile().catch(() => me);
   }
   try { await load(); } catch (e) { root.innerHTML = `<div class="card" style="margin-top:60px">${esc(IMF.errMsg(e))}</div>`; return; }
+  const unlockBtn = () => R.can_unlock ? `<button class="btn red" id="unlock">${icon('lock', 18, 2)}มีโค้ดเชิญวิศวะ? กรอกโค้ด</button>` : '';
+  const after = async () => { await load().catch(() => {}); start(); };
+  root.addEventListener('click', e => { if (e.target.closest('#unlock')) IMF.codeModal(after); });
+  function start() {
+    // nothing open for this person yet → coming soon (with the unlock button if an invite code can open it)
+    if (!R.admin && !R.central_open && !(R.eng_open && R.can_eng)) { root.innerHTML = IMF.comingSoon((me ? IMF.pointPill(me.points) : '') + unlockBtn()); return; }
+    render();
+  }
 
   const redeemed = (r) => history.some(h => h.reason === 'redeem' && h.detail === r.name);
   function state(r) {
+    if (!r.open) return ['no', r.scope === 'eng' && !R.can_eng ? 'เฉพาะวิศวะ' : 'ยังไม่เปิด'];
     if (!me) return ['login', 'เข้าสู่ระบบ'];
     if (r.repeatable === false && redeemed(r)) return ['got', 'แลกแล้ว'];
     if (r.stock != null && r.stock <= 0) return ['no', 'หมดแล้ว'];
@@ -42,27 +52,34 @@
     return ['go', 'แลก'];
   }
 
+  const card = (r) => {
+    const [k, label] = state(r);
+    const btn = k === 'login' ? `<a class="act go" href="register.html">${label}</a>`
+      : k === 'go' ? `<button class="act go" data-redeem="${r.id}">${label}</button>`
+      : `<span class="act ${k}">${k === 'got' ? icon('check', 16, 2.4) : ''}${label}</span>`;
+    return `<div class="rw ${r.open ? '' : 'off'}">${r.scope === 'eng' ? '<span class="engb">ENG</span>' : ''}<div class="pic" data-info="${r.id}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 34, 1.5)}</div>
+      <div><div class="nm">${esc(r.name)}</div><div class="ct">${fmt(r.cost)} Point${r.stock != null ? ` · เหลือ ${fmt(r.stock)}` : ''}</div></div>${btn}</div>`;
+  };
   function render() {
     const shown = tab === 'can' ? list.filter(r => state(r)[0] === 'go') : list;
     const hist = history.filter(h => h.reason === 'redeem');
+    const eng = shown.filter(r => r.scope === 'eng'), cen = shown.filter(r => r.scope !== 'eng');
+    const grid = (a) => `<div class="rw-grid">${a.map(card).join('')}</div>`;
+    const hidden = R.admin && list.some(r => !r.open);
     root.innerHTML = `<div class="ph"><h1>ของรางวัล</h1>${me ? IMF.pointPill(me.points) : ''}</div>
       <div class="stack" style="margin-top:0">
-      ${!settings.rewards_open ? '<span class="chip warn">หน้าของรางวัลปิดอยู่ · แอดมินเห็น</span>' : ''}
+      ${hidden ? '<span class="chip warn">แอดมินเห็นทุกชิ้น · ชิ้นจาง = คนทั่วไปยังไม่เห็น</span>' : ''}
       <div class="banner">${icon('pin', 22, 2)}แลกได้ที่จุดแลกของรางวัลเท่านั้น</div>
+      ${R.can_unlock ? `<div class="unlock">${icon('lock', 22, 2)}<b>ของรางวัลวิศวะ</b><button class="btn red small" id="unlock">กรอกโค้ด</button></div>` : ''}
       <div class="chips" id="chips">${[['all', 'ทั้งหมด'], ['can', 'แลกได้'], ...(me ? [['hist', 'ประวัติการแลก']] : [])].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       ${tab === 'hist'
         ? `<div class="card">${hist.length ? `<ul class="list small">${hist.map(h => `<li><div style="flex:1"><b>${esc(h.detail || '')}</b><div class="dim">${IMF.dateTH(h.created_at)}</div></div><b style="color:var(--bad)">${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`
-        : shown.length ? `<div class="rw-grid">${shown.map(r => {
-            const [k, label] = state(r);
-            const btn = k === 'login' ? `<a class="act go" href="register.html">${label}</a>`
-              : k === 'go' ? `<button class="act go" data-redeem="${r.id}">${label}</button>`
-              : `<span class="act ${k}">${k === 'got' ? icon('check', 16, 2.4) : ''}${label}</span>`;
-            return `<div class="rw"><div class="pic" data-info="${r.id}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 34, 1.5)}</div>
-              <div><div class="nm">${esc(r.name)}</div><div class="ct">${fmt(r.cost)} Point${r.stock != null ? ` · เหลือ ${fmt(r.stock)}` : ''}</div></div>${btn}</div>`;
-          }).join('')}</div>` : '<div class="card center dim">ยังไม่มี</div>'}
+        : !shown.length ? '<div class="card center dim">ยังไม่มี</div>'
+        : eng.length && cen.length ? `<div class="rwh">เฉพาะวิศวะ</div>${grid(eng)}<div class="rwh">ส่วนกลาง</div>${grid(cen)}`
+        : grid(shown)}
       </div>`;
   }
-  render();
+  start();
 
   root.addEventListener('click', e => {
     const c = e.target.closest('#chips button'); if (c) { tab = c.dataset.t; render(); return; }

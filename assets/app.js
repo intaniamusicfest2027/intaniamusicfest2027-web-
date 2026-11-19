@@ -21,7 +21,7 @@
   const CATEGORY = { eng: 'นิสิตวิศวะ', chula_student: 'นิสิตจุฬาฯ', chula_staff: 'บุคลากรจุฬาฯ', external: 'บุคคลทั่วไป' };
   const YEAR = { '1': 'ปี 1', '2': 'ปี 2', '3': 'ปี 3', '4': 'ปี 4', '5+': 'ปี 5 ขึ้นไป' };
   const GENDER = { male: 'ชาย', female: 'หญิง', other: 'LGBTQ+', na: 'ไม่ระบุ' };
-  const REASON = { referral: 'เพื่อนลงทะเบียนด้วยรหัสของคุณ', signup_bonus: 'ใช้รหัสเพื่อนตอนลงทะเบียน', redeem: 'แลกของรางวัล', adjust: 'ปรับ Point โดยทีมงาน', activity: 'ร่วมกิจกรรม' };
+  const REASON = { referral: 'เพื่อนลงทะเบียนด้วยรหัสของคุณ', signup_bonus: 'ใช้รหัสเพื่อนตอนลงทะเบียน', redeem: 'แลกของรางวัล', adjust: 'ปรับ Point โดยทีมงาน', activity: 'ร่วมกิจกรรม', code: 'ใช้โค้ด' };
 
   const ERRORS = {
     NOT_LOGGED_IN: 'กรุณาเข้าสู่ระบบก่อน',
@@ -58,11 +58,21 @@
     REQUEST_USED: 'QR นี้แลกไปแล้ว',
     REWARDS_CLOSED: 'ยังไม่เปิดหน้าของรางวัล',
     BAD_CODE: 'โค้ดต้องเป็นตัวอักษรอังกฤษหรือตัวเลข 3–12 ตัว',
-    BAD_POINTS: 'Point ต้องไม่ติดลบ'
+    BAD_POINTS: 'Point ต้องไม่ติดลบ',
+    ENG_REWARD_ONLY: 'ของรางวัลนี้สำหรับนิสิตวิศวะเท่านั้น',
+    CODES_CLOSED: 'ตอนนี้ยังไม่เปิดให้กรอกโค้ด',
+    BAD_REDEEM_CODE: 'ไม่พบโค้ดนี้ ลองเช็กอีกครั้ง',
+    CODE_USED: 'คุณใช้โค้ดนี้ไปแล้ว',
+    CODE_FULL: 'โค้ดนี้ถูกใช้ครบจำนวนแล้ว',
+    BAD_REDEEM_FORMAT: 'โค้ดต้องเป็นตัวอักษรอังกฤษหรือตัวเลข 3–20 ตัว',
+    CODE_TAKEN: 'โค้ดนี้ซ้ำกับโค้ดชวนเพื่อน ลองใช้คำอื่น',
+    CODE_IN_USE: 'โค้ดนี้มีคนใช้แล้ว ลบไม่ได้ ให้ปิดสวิตช์ "เปิดใช้" แทน'
   };
+  // longest key first, so CODES_CLOSED is not read as CLOSED
+  const ERR_KEYS = Object.keys(ERRORS).sort((a, b) => b.length - a.length);
   function errMsg(e) {
     const m = String((e && (e.message || e.code)) || e || '');
-    for (const k in ERRORS) if (m.includes(k)) return ERRORS[k];
+    for (const k of ERR_KEYS) if (m.includes(k)) return ERRORS[k];
     if (/JWT|session/i.test(m)) return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
     if (/fetch|network/i.test(m)) return 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง';
     return m || 'เกิดข้อผิดพลาด';
@@ -73,7 +83,7 @@
   // ------------------------------------------------------------------
   const demo = (function () {
     if (!DEMO) return null;
-    const KEY = 'imf_demo_v6';
+    const KEY = 'imf_demo_v7';
     const FAC = { '21': 'วิศวกรรมศาสตร์', '22': 'อักษรศาสตร์', '23': 'วิทยาศาสตร์', '24': 'รัฐศาสตร์', '25': 'สถาปัตยกรรมศาสตร์', '26': 'พาณิชยศาสตร์และการบัญชี', '27': 'ครุศาสตร์', '28': 'นิเทศศาสตร์', '29': 'เศรษฐศาสตร์', '30': 'แพทยศาสตร์', '33': 'เภสัชศาสตร์', '34': 'นิติศาสตร์' };
     const firsts = ['ภูมิ','ต้นข้าว','มายด์','ปั้น','ฟ้า','ไนน์','บีม','แพรว','ภู','เฟิร์น','กาย','ข้าวหอม','ปลื้ม','อิง','ชิน','น้ำ','บอส','พลอย'];
     const lasts = ['ศรีสุข','วงศ์ใหญ่','ทองดี','สายสุวรรณ','บุญมา','เจริญผล','แก้วกาญจนา','สุขเกษม'];
@@ -101,10 +111,12 @@
       profiles.forEach((p, i) => { if (i > 20 && Math.random() < .5) { const r = profiles[Math.floor(Math.pow(Math.random(), 2.2) * 60)]; if (r !== p) { p.referred_by = r.id; const pts = r.category === 'eng' ? 2 : 1; r.points += pts; p.points += 1; ledger.push({ user_id: r.id, delta: pts, reason: 'referral', related_user: p.id, created_at: p.created_at }, { user_id: p.id, delta: 1, reason: 'signup_bonus', related_user: r.id, created_at: p.created_at }); } } });
       return {
         user: null,
-        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, points_signup_bonus_eng: 1, leaderboard_open: true, rewards_open: false, ticket_open: false, ticket_countdown_at: '2027-01-15T10:00:00+07:00', map_open: false, redeem_open: true, target: 12000 },
-        ref_codes: [], redeem_requests: [],
+        settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, points_signup_bonus_eng: 1, leaderboard_open: true, rewards_open: false, ticket_open: false, ticket_countdown_at: '2027-01-15T10:00:00+07:00', map_open: false, redeem_open: true, target: 12000,
+          rewards_eng_open: true, rewards_central_open: false, eng_unlock_referral: true, eng_unlock_code: true, codes_open: true },
+        ref_codes: [], redeem_requests: [], code_uses: [],
+        redeem_codes: [{ code: 'ENGVIP', label: 'เชิญวิศวะ', points: 2, unlock_eng: true, max_uses: 100, active: true, created_at: new Date().toISOString() }, { code: 'IMF2027', label: 'โพสต์ IG', points: 1, unlock_eng: false, max_uses: null, active: true, created_at: new Date().toISOString() }],
         profiles, ledger, staff: [],
-        rewards: [{ id: 1, name: 'สติกเกอร์', description: 'สติกเกอร์ลายโลโก้งาน', cost: 1, stock: 500, active: true, sort: 1, image: null }, { id: 2, name: 'ริสแบนด์', description: '', cost: 3, stock: 200, active: true, sort: 2, image: null }, { id: 3, name: 'เสื้อยืด', description: 'ไซซ์ S–XL', cost: 10, stock: 0, active: true, sort: 3, image: null }],
+        rewards: [{ id: 1, name: 'สติกเกอร์', description: 'สติกเกอร์ลายโลโก้งาน', cost: 1, stock: 500, active: true, sort: 1, image: null, scope: 'all' }, { id: 2, name: 'ริสแบนด์', description: '', cost: 3, stock: 200, active: true, sort: 2, image: null, scope: 'all' }, { id: 3, name: 'เสื้อยืด', description: 'ไซซ์ S–XL', cost: 10, stock: 0, active: true, sort: 3, image: null, scope: 'all' }, { id: 4, name: 'เสื้อ Intania', description: 'เฉพาะนิสิตวิศวะ', cost: 2, stock: 100, active: true, sort: 0, image: null, scope: 'eng' }],
         activities: [{ id: 1, name: 'ถ่ายรูปที่ Photo booth', points: 2, active: true }, { id: 2, name: 'เล่นเกมบูธสปอนเซอร์', points: 1, active: true }],
         announcements: []
       };
@@ -119,6 +131,10 @@
     const me = () => db.user && db.profiles.find(p => p.email === db.user.email);
     const fail = (c) => { throw new Error(c); };
     const full = (p) => p.first_name + ' ' + p.last_name;
+    const canEng = (p) => !!p && (p.category === 'eng'
+      || (db.settings.eng_unlock_referral && (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng')
+      || (db.settings.eng_unlock_code && db.code_uses.some(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng)));
+    const rewardOpen = (p, w) => w.scope === 'eng' ? !!db.settings.rewards_eng_open && canEng(p) : !!db.settings.rewards_central_open;
     const detail = (l) => { const f = db.profiles.find(x => x.id === l.related_user), r = db.rewards.find(x => x.id === l.reward_id), a = db.activities.find(x => x.id === l.activity_id); return r ? r.name : a ? a.name : f ? full(f) : (l.note || null); };
 
     const rpc = {
@@ -145,8 +161,10 @@
         if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE');
         if (info.category === 'eng' && !GROUPS.includes(p.group_code)) fail('BAD_GROUP');
         if (!p.consent) fail('NO_CONSENT');
-        let referrer = null, special = null;
-        const ref = s.referral_open && p.ref_code ? String(p.ref_code).toUpperCase() : null;
+        let referrer = null, special = null, typed = p.ref_code ? String(p.ref_code).toUpperCase() : null, redeem = null;
+        if (typed && db.redeem_codes.some(c => c.code === typed) && !db.ref_codes.some(c => c.code === typed) && !db.profiles.some(x => x.ref_code === typed)) { redeem = typed; typed = null; }
+        if (redeem) { const c = db.redeem_codes.find(x => x.code === redeem); if (!s.codes_open) fail('CODES_CLOSED'); if (!c.active) fail('BAD_REDEEM_CODE'); if (c.max_uses && db.code_uses.filter(u => u.code === redeem).length >= c.max_uses) fail('CODE_FULL'); }
+        const ref = s.referral_open && typed ? typed : null;
         if (ref) {
           special = db.ref_codes.find(c => c.code === ref) || null;
           referrer = special ? db.profiles.find(x => x.id === special.owner) || null : db.profiles.find(x => x.ref_code === ref);
@@ -164,8 +182,38 @@
           if (referrer && pts > 0) { referrer.points += pts; db.ledger.push({ user_id: referrer.id, delta: pts, reason: 'referral', related_user: row.id, created_at: row.created_at }); }
           if (bonus > 0) { row.points += bonus; db.ledger.push({ user_id: row.id, delta: bonus, reason: 'signup_bonus', related_user: referrer ? referrer.id : null, note: referrer ? null : 'โค้ด ' + ref, created_at: row.created_at }); }
         }
-        save(); return { ref_code: row.ref_code, bonus };
+        let unlock = false;
+        if (redeem) { const r = rpc.my_code_redeem({ c: redeem }); bonus += r.added; unlock = r.unlock_eng; }
+        save(); return { ref_code: row.ref_code, bonus, unlock_eng: unlock };
       },
+      my_rewards() {
+        const m = me(), s = db.settings, ce = canEng(m), adm = db.settings._demo_admin !== false;
+        return { eng_open: !!s.rewards_eng_open, central_open: !!s.rewards_central_open, can_eng: ce, admin: adm,
+          can_unlock: !!(s.rewards_eng_open && !ce && m && s.codes_open && s.eng_unlock_code),
+          items: db.rewards.filter(w => w.active && (adm || rewardOpen(m, w))).sort((a, b) => (a.sort || 0) - (b.sort || 0) || a.cost - b.cost)
+            .map(w => ({ ...w, scope: w.scope || 'all', open: rewardOpen(m, w) })) };
+      },
+      my_code_redeem({ c }) {
+        const m = me(), k = String(c || '').trim().toUpperCase(); if (!m) fail('NOT_FOUND');
+        if (!db.settings.codes_open) fail('CODES_CLOSED');
+        const rc = db.redeem_codes.find(x => x.code === k); if (!rc || !rc.active) fail('BAD_REDEEM_CODE');
+        if (db.code_uses.some(u => u.code === k && u.user_id === m.id)) fail('CODE_USED');
+        if (rc.max_uses && db.code_uses.filter(u => u.code === k).length >= rc.max_uses) fail('CODE_FULL');
+        const was = canEng(m), now = new Date().toISOString();
+        db.code_uses.push({ code: k, user_id: m.id, points: rc.points, created_at: now });
+        if (rc.points > 0) { m.points += rc.points; db.ledger.push({ user_id: m.id, delta: rc.points, reason: 'code', note: 'โค้ด ' + k, created_at: now }); }
+        save(); return { code: k, added: rc.points, points: m.points, unlock_eng: rc.unlock_eng && !was && canEng(m) };
+      },
+      admin_redeem_codes() { return db.redeem_codes.slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map(c => ({ ...c, used: db.code_uses.filter(u => u.code === c.code).length })); },
+      admin_redeem_code_save({ c, pts, unlock, maxu, lbl, act }) {
+        const k = String(c || '').trim().toUpperCase();
+        if (!/^[A-Z0-9]{3,20}$/.test(k)) fail('BAD_REDEEM_FORMAT'); if (pts < 0 || (maxu != null && maxu < 1)) fail('BAD_POINTS');
+        let rc = db.redeem_codes.find(x => x.code === k);
+        if (!rc && (db.ref_codes.some(x => x.code === k) || db.profiles.some(x => x.ref_code === k))) fail('CODE_TAKEN');
+        if (!rc) { rc = { code: k, created_at: new Date().toISOString() }; db.redeem_codes.push(rc); }
+        Object.assign(rc, { label: lbl || null, points: pts || 0, unlock_eng: !!unlock, max_uses: maxu || null, active: act !== false }); save(); return k;
+      },
+      admin_redeem_code_delete({ c }) { const k = String(c).toUpperCase(); if (db.code_uses.some(u => u.code === k)) fail('CODE_IN_USE'); db.redeem_codes = db.redeem_codes.filter(x => x.code !== k); save(); return null; },
       update_my_profile({ p }) { const m = me(); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!p.nickname) fail('BAD_NICKNAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); Object.assign(m, { phone, nickname: p.nickname, first_name: p.first_name, last_name: p.last_name }); save(); return null; },
       admin_update_person({ uid, p }) { const r = db.profiles.find(x => x.id === uid); if (!r) fail('NOT_FOUND'); const phone = String(p.phone || '').replace(/\D/g, ''); if (!p.first_name || !p.last_name) fail('BAD_NAME'); if (!/^0\d{8,9}$/.test(phone)) fail('BAD_PHONE'); if (p.student_id && !/^\d{10}$/.test(p.student_id)) fail('BAD_STUDENT_ID'); Object.assign(r, { first_name: p.first_name, last_name: p.last_name, nickname: p.nickname || null, gender: p.gender || null, phone, group_code: p.group_code || null, student_id: p.student_id || null, year: p.year || null, faculty: p.faculty || null, category: p.category || r.category }); if (/^\d+$/.test(p.points || '') && +p.points !== r.points) { db.ledger.push({ user_id: uid, delta: +p.points - r.points, reason: 'adjust', note: 'แก้ไขโดยแอดมิน', created_at: new Date().toISOString() }); r.points = +p.points; } if ('checked_in' in p) r.checked_in_at = p.checked_in ? (r.checked_in_at || new Date().toISOString()) : null; save(); return null; },
       my_qr() { const m = me(); const w = Math.floor(Date.now() / 180000); return { code: 'IMF27:' + m.qr_token + ':' + w + ':demo', expires_in: Math.ceil((w + 1) * 180 - Date.now() / 1000) }; },
@@ -178,6 +226,7 @@
       my_redeem_start({ reward }) {
         const m = me(), s = db.settings, w = db.rewards.find(x => x.id === reward && x.active);
         if (!s.redeem_open) fail('REDEEM_CLOSED'); if (!w) fail('BAD_REWARD');
+        if (!rewardOpen(m, w)) fail(w.scope === 'eng' && !canEng(m) ? 'ENG_REWARD_ONLY' : 'REWARDS_CLOSED');
         if (w.repeatable === false && db.ledger.some(l => l.user_id === m.id && l.reward_id === w.id)) fail('ALREADY_REDEEMED');
         if (w.stock != null && w.stock <= 0) fail('OUT_OF_STOCK'); if (m.points < w.cost) fail('NOT_ENOUGH_POINTS');
         db.redeem_requests.forEach(q => { if (q.user_id === m.id && q.status === 'pending') q.status = 'cancelled'; });
@@ -238,7 +287,8 @@
       staff_redeem({ uid, reward }) {
         if (!db.settings.redeem_open) fail('REDEEM_CLOSED');
         const r = db.profiles.find(p => p.id === uid), w = db.rewards.find(x => x.id === reward && x.active);
-        if (!w) fail('BAD_REWARD'); if (w.repeatable === false && db.ledger.some(l => l.user_id === uid && l.reward_id === w.id)) fail('ALREADY_REDEEMED'); if (r.points < w.cost) fail('NOT_ENOUGH_POINTS'); if (w.stock !== null && w.stock <= 0) fail('OUT_OF_STOCK');
+        if (!w) fail('BAD_REWARD'); if (w.scope === 'eng' && !canEng(r)) fail('ENG_REWARD_ONLY');
+        if (w.repeatable === false && db.ledger.some(l => l.user_id === uid && l.reward_id === w.id)) fail('ALREADY_REDEEMED'); if (r.points < w.cost) fail('NOT_ENOUGH_POINTS'); if (w.stock !== null && w.stock <= 0) fail('OUT_OF_STOCK');
         if (w.stock !== null) w.stock--; r.points -= w.cost; db.ledger.push({ user_id: r.id, delta: -w.cost, reason: 'redeem', reward_id: w.id, created_at: new Date().toISOString() }); save();
         return { points: r.points, reward: w.name };
       },
@@ -260,7 +310,15 @@
           by_faculty: Object.keys(fac).map(k => ({ name: k, n: fac[k] })).sort((a, b) => b.n - a.n),
           by_group: GROUPS.map(c => ({ code: c, n: P.filter(p => p.group_code === c).length })),
           by_day: Object.keys(days).sort().map(d => ({ d, n: days[d] })),
-          by_reward: db.rewards.map(w => ({ name: w.name, stock: w.stock, n: red.filter(l => l.reward_id === w.id).length })).filter(x => x.n)
+          by_reward: db.rewards.map(w => ({ name: w.name, stock: w.stock, n: red.filter(l => l.reward_id === w.id).length })).filter(x => x.n),
+          gender_by_cat: P.reduce((o, p) => { const g = (o[p.category] = o[p.category] || {}); const k = p.gender || '-'; g[k] = (g[k] || 0) + 1; return o; }, {}),
+          by_source: (() => { const used = new Set(db.code_uses.map(u => u.user_id)); const o = { none: 0, eng: 0, other: 0, special: 0, code: 0 };
+            P.forEach(p => { const r = P.find(x => x.id === p.referred_by); if (r) o[r.category === 'eng' ? 'eng' : 'other']++; else if (p.used_code) o.special++; else if (used.has(p.id)) o.code++; else o.none++; }); return o; })(),
+          invited_gender: P.filter(p => p.referred_by).reduce((o, p) => { const k = p.gender || '-'; o[k] = (o[k] || 0) + 1; return o; }, {}),
+          inviters: new Set(P.filter(p => p.referred_by).map(p => p.referred_by)).size,
+          eng_unlocked: P.filter(p => p.category !== 'eng' && canEng(p)).length,
+          codes_used: db.code_uses.length,
+          top_inviters: P.map(p => ({ name: full(p), grp: p.group_code, cat: p.category, n: P.filter(f => f.referred_by === p.id).length })).filter(x => x.n).sort((a, b) => b.n - a.n).slice(0, 5)
         };
       },
       admin_list({ q, lim, off, f }) {
@@ -269,6 +327,7 @@
         const rows = db.profiles.filter(p => (!q || [p.first_name, p.last_name, p.nickname, p.email, p.phone, p.ref_code, p.student_id, p.faculty].some(v => v && String(v).toLowerCase().includes(q)))
             && (!f.checked || (f.checked === 'yes') === !!p.checked_in_at) && (!f.category || p.category === f.category) && (!f.group || p.group_code === f.group)
             && (!f.faculty || p.faculty === f.faculty) && (!f.year || p.year === f.year) && (!f.gender || p.gender === f.gender)
+            && (!f.invited || (f.invited === 'yes' ? !!(p.referred_by || p.used_code) : f.invited === 'no' ? !(p.referred_by || p.used_code) : (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng'))
             && (!f.points || (f.points === 'has' ? p.points > 0 : f.points === 'ge10' ? p.points >= 10 : p.points === 0)))
           .map(p => ({ ...p, friends: friends(p) }))
           .sort((a, b) => f.sort === 'points' ? b.points - a.points : f.sort === 'friends' ? b.friends - a.friends : f.sort === 'sid' ? String(a.student_id || '~').localeCompare(String(b.student_id || '~')) : b.created_at.localeCompare(a.created_at));
@@ -277,7 +336,7 @@
       admin_person({ uid }) {
         const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND');
         const r = db.profiles.find(x => x.id === p.referred_by);
-        return { profile: { ...p }, referrer: r ? { name: full(r), ref_code: r.ref_code } : null,
+        return { profile: { ...p }, referrer: r ? { name: full(r), ref_code: r.ref_code } : null, can_eng: canEng(p), codes: db.code_uses.filter(u => u.user_id === p.id).map(u => u.code),
           invited: db.profiles.filter(f => f.referred_by === p.id).map(f => ({ name: full(f), student_id: f.student_id, created_at: f.created_at })),
           ledger: db.ledger.filter(l => l.user_id === uid).slice().reverse().map(l => ({ created_at: l.created_at, delta: l.delta, reason: l.reason, detail: detail(l) })) };
       },
@@ -325,6 +384,8 @@
   }
 
   let settingsP = null, infoP = null;
+  // the rewards page is open when either the Engineering or the central rewards are open
+  function withRewards(s) { if ('rewards_eng_open' in s || 'rewards_central_open' in s) s.rewards_open = !!(s.rewards_eng_open || s.rewards_central_open); return s; }
   const api = {
     rpc,
     rewards: table('rewards', ['sort', 'cost']),
@@ -345,8 +406,8 @@
     async signOut() { if (DEMO) demo.logout(); else await sb.auth.signOut(); },
     settings(fresh) {
       if (DEMO && fresh) demo.reload();
-      if (!settingsP || fresh) settingsP = DEMO ? Promise.resolve({ ...demo.db.settings })
-        : q(sb.from('settings').select('key,value')).then(rows => Object.fromEntries(rows.map(r => [r.key, r.value])));
+      if (!settingsP || fresh) settingsP = (DEMO ? Promise.resolve({ ...demo.db.settings })
+        : q(sb.from('settings').select('key,value')).then(rows => Object.fromEntries(rows.map(r => [r.key, r.value])))).then(withRewards);
       return settingsP;
     },
     info() { if (!infoP) infoP = rpc('my_email_info').catch(() => ({ logged_in: false })); return infoP; },
@@ -588,6 +649,26 @@
     });
   }
 
+  // "Enter a code" pop-up. onDone(result) runs after a code worked.
+  function codeModal(onDone) {
+    const m = modal(`<form class="stack" id="cf"><div class="row" style="justify-content:space-between"><h2>กรอกโค้ด</h2><button type="button" class="btn ghost small" data-close>ปิด</button></div>
+      <input class="input codein" name="c" maxlength="20" autocapitalize="characters" autocomplete="off" placeholder="XXXXXX" required>
+      <div class="errtext" id="cerr"></div><button class="btn red block">ยืนยัน</button></form>`);
+    const f = $('#cf', m.el); f.c.focus();
+    f.onsubmit = async (e) => {
+      e.preventDefault(); const btn = $('button.red', f); btn.disabled = true; $('#cerr', f).textContent = '';
+      try {
+        const r = await rpc('my_code_redeem', { c: f.c.value.trim().toUpperCase() });
+        m.close(); if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+        modal(`<div class="done"><span class="okdisc ${r.added ? 'star' : ''}">${icon(r.added ? 'star' : 'check', 56, 2.4)}</span><h2>ใช้โค้ดสำเร็จ!</h2>
+          ${r.added ? `<div class="plus">+${fmt(r.added)} Point</div>` : ''}
+          ${r.unlock_eng ? `<div class="unl">${icon('gift', 18, 2)}ปลดล็อกของรางวัลวิศวะแล้ว</div>` : ''}
+          <div class="muted">รวม ${fmt(r.points)} Point</div>
+          <button class="btn red block" data-close style="margin-top:12px">ตกลง</button></div>`, { onClose: () => onDone && onDone(r) });
+      } catch (ex) { $('#cerr', f).textContent = errMsg(ex); btn.disabled = false; }
+    };
+  }
+
   // the invite card (code + share buttons)
   function inviteCard(me, friends) {
     return `<div class="card invite">
@@ -604,5 +685,5 @@
     const s = e.target.closest('[data-share]'); if (s) return shareInvite(s.dataset.share);
   });
 
-  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, tabs, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard, icon, ICON, LOGO, countdownHTML, startCountdown, comingSoon, pointPill, watch, watchMe };
+  window.IMF = { CFG, EVENT, DEMO, sb, api, rpc, demo, GROUPS, CATEGORY, YEAR, GENDER, REASON, errMsg, $, $$, esc, fmt, dateTH, toast, copy, modal, personLine, boot, tabs, loginButtons, calendarLinks, qrSvg, inviteUrl, shareInvite, invitePoints, inviteCard, icon, ICON, LOGO, countdownHTML, startCountdown, comingSoon, pointPill, watch, watchMe, codeModal };
 })();

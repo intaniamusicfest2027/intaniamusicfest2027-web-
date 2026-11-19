@@ -12,10 +12,10 @@
 <meta property="og:image" content="assets/hero.jpg">
 <link rel="icon" href="assets/icon.png">
 <link rel="preload" as="image" href="assets/hero.jpg" fetchpriority="high">
-<link rel="stylesheet" href="assets/style.css?v=66">
+<link rel="stylesheet" href="assets/style.css?v=70">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
-<script src="assets/app.js?v=66"></script>
+<script src="assets/app.js?v=70"></script>
 </head>
 <body>
 <main class="stage" id="root"><div class="spinner" style="margin-top:160px"></div></main>
@@ -72,16 +72,18 @@
     <div class="pcard"><div>
       <div class="top"><span class="lbl">MY POINT</span>${me.group_code ? `<span class="grp">${icon('users', 14, 2)}Group ${esc(me.group_code)}</span>` : ''}</div>
       <div class="num"><b>${fmt(me.points)}</b><span>PT</span></div>
-      <div class="brk"><div><b>+${fmt(sum('referral'))}</b><span>ชวนเพื่อน</span></div><div><b>+${fmt(sum('activity'))}</b><span>กิจกรรม</span></div><div><b>+${fmt(sum('signup_bonus'))}</b><span>โค้ดเพื่อน</span></div></div>
-      <div class="acts">
+      <div class="brk"><div><b>+${fmt(sum('referral'))}</b><span>ชวนเพื่อน</span></div><div><b>+${fmt(sum('activity'))}</b><span>กิจกรรม</span></div><div><b>+${fmt(sum('signup_bonus') + sum('code'))}</b><span>โค้ด</span></div></div>
+      <div class="acts ${s.codes_open ? 'three' : ''}">
         ${s.rewards_open ? `<a class="pbtn red" href="rewards.html">${icon('gift', 18, 2)}แลกของรางวัล</a>` : `<span class="pbtn soonish">${icon('gift', 17, 2)}ของรางวัลเร็วๆ นี้</span>`}
         <button class="pbtn" id="hist">${icon('clock', 17, 2)}ประวัติ Point</button>
+        ${s.codes_open ? `<button class="pbtn" id="code">${icon('star', 17, 2)}กรอกโค้ด</button>` : ''}
       </div>
     </div></div>
     ${s.referral_open ? IMF.inviteCard(me, friends) : ''}
   </div>`;
 
   IMF.watchMe(me);
+  if ($('#code')) $('#code').onclick = () => IMF.codeModal(() => location.reload());
   $('#hist').onclick = () => IMF.modal(`<div class="stack"><div class="row" style="justify-content:space-between"><h2>ประวัติ Point</h2><button class="btn ghost small" data-close>ปิด</button></div>
     ${history.length ? `<ul class="list small">${history.map(h => `<li><div style="flex:1"><b>${esc(REASON[h.reason] || h.reason)}</b>${h.detail ? ` <span class="muted">· ${esc(h.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(h.created_at)}</div></div>
       <b style="color:${h.delta > 0 ? '#0f9d58' : '#b3261e'}">${h.delta > 0 ? '+' : ''}${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`);

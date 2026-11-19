@@ -7,14 +7,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>หลังบ้าน · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=66">
+<link rel="stylesheet" href="assets/style.css?v=70">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/vendor/chart.umd.js"></script>
-<script src="assets/app.js?v=66"></script>
+<script src="assets/app.js?v=70"></script>
 <style>
   .chart-box { position: relative; height: 230px; }
-  .legend { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 12px; font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+  .legend span:nth-child(3n+1) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .legend { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; font-size: 13px; color: var(--ink-2); margin-top: 12px; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; }
   .legend b { color: #fff; text-align: right; font-variant-numeric: tabular-nums; }
   .legend span:nth-child(3n) { text-align: right; color: var(--ink-3); font-variant-numeric: tabular-nums; }
@@ -23,6 +24,20 @@
   .card { backdrop-filter: none; background: #1c0709; }
   .grid-2 > .card, .grid-4 > .stat { min-width: 0; }
   tr.click { cursor: pointer; } tr.click:hover td { background: rgba(255, 255, 255, .05); }
+  .tight3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 10px; }
+  .tight3 .stat .v { font-size: 26px; }
+  @media (max-width: 600px) { .amain .grid-2 { grid-template-columns: minmax(0, 1fr) !important; } }
+  .osec { display: flex; align-items: center; gap: 8px; margin: 22px 2px 10px; font-size: 19px; }
+  .rcl { display: flex; flex-direction: column; }
+  .rcr { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: 10px; }
+  .rcr:first-child { border-top: 0; }
+  .rch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .rch b { font-size: 17px; letter-spacing: 1px; }
+  .engb2 { padding: 2px 9px; border-radius: 999px; background: var(--red); color: #fff; font-size: 11.5px; font-weight: 800; }
+  .rcf { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .rcf label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
+  .rcf .numin { width: 84px; }
+  .rcb { margin-left: auto; display: flex; gap: 6px; }
   .thumb { width: 64px; height: 64px; border-radius: 10px; background: #3a1418 center / cover no-repeat; display: grid; place-items: center; cursor: pointer; font-size: 12px; color: var(--ink-3); text-align: center; flex: none; }
 </style>
 </head>
@@ -41,7 +56,7 @@
   }
   if (!info.is_admin) { root.innerHTML = `<div class="inner"><div class="card" style="margin-top:60px">บัญชี ${esc(info.email)} ไม่ใช่แอดมิน · <a href="index.html">กลับหน้าเว็บ</a></div></div>`; return; }
 
-  const TABS = [['overview', 'ภาพรวม'], ['people', 'รายชื่อ'], ['referral', 'การชวน'], ['rewards', 'ของรางวัล & กิจกรรม'], ['settings', 'ตั้งค่า'], ['team', 'ทีมงาน']];
+  const TABS = [['overview', 'ภาพรวม'], ['people', 'รายชื่อ'], ['referral', 'การชวน'], ['codes', 'Redeem Code'], ['rewards', 'ของรางวัล & กิจกรรม'], ['settings', 'ตั้งค่า'], ['team', 'ทีมงาน']];
   root.innerHTML = `<header class="ahead"><div class="in">
       <a class="backbtn" href="index.html" aria-label="กลับหน้าเว็บ">${icon('back', 22)}</a>
       <span class="brandl"><img src="${IMF.LOGO}" alt="INTANIA MUSIC FEST"><b>หลังบ้าน</b></span>
@@ -50,7 +65,7 @@
     </div></header>
     <div class="amain">${TABS.map(([k], i) => `<section id="t-${k}" class="${i ? 'hide' : ''}"></section>`).join('')}</div>`;
 
-  const tabFn = { overview, people, referral: referralTab, rewards: rewardsTab, settings: settingsTab, team: teamTab };
+  const tabFn = { overview, people, referral: referralTab, codes: codesTab, rewards: rewardsTab, settings: settingsTab, team: teamTab };
   let active = 'overview';
   $('#tabs').onclick = e => {
     const b = e.target.closest('button'); if (!b) return;
@@ -108,6 +123,20 @@
         ${pieCard('ชั้นปี', 'cYear')}
         ${pieCard('คณะ', 'cFac')}
       </div>
+      <div class="card" style="margin-top:14px"><div class="card-title"><h3>เพศ แยกตามประเภท</h3></div><div class="chart-box"><canvas id="cGenCat"></canvas></div><div class="legend" id="cGenCatL"></div></div>
+      <h3 class="osec">${icon('share', 19)}เพื่อนชวน</h3>
+      <div class="grid-4">
+        <div class="stat"><div class="v">${fmt(s.referred)}</div><div class="l">ถูกเพื่อนชวน (${s.total ? Math.round(s.referred / s.total * 100) : 0}%)</div></div>
+        <div class="stat"><div class="v">${fmt(s.inviters)}</div><div class="l">คนที่ชวนเพื่อน</div></div>
+        <div class="stat"><div class="v">${fmt(s.eng_unlocked)}</div><div class="l">คนนอกที่เห็นของวิศวะ</div></div>
+        <div class="stat"><div class="v">${fmt(s.codes_used)}</div><div class="l">ใช้ Redeem Code</div></div>
+      </div>
+      <div class="grid-2" style="margin-top:14px">
+        ${pieCard('มาจากไหน', 'cSrc')}
+        ${pieCard('เพศของคนที่ถูกชวน', 'cInvG')}
+      </div>
+      <div class="card" style="margin-top:14px"><div class="card-title"><h3>ชวนมากสุด</h3></div>
+        ${s.top_inviters.length ? `<ul class="list">${s.top_inviters.map((t, i) => `<li><span class="dim" style="width:22px;text-align:center;font-weight:800">${i + 1}</span><div style="flex:1;min-width:0"><b>${esc(t.name)}</b><div class="small muted">${esc(CATEGORY[t.cat] || '')}${t.grp ? ' · Group ' + esc(t.grp) : ''}</div></div><b>${fmt(t.n)}</b><span class="small dim">คน</span></li>`).join('')}</ul>` : '<div class="dim">ยังไม่มี</div>'}</div>
       <div class="card" style="margin-top:14px"><div class="card-title"><h3>จำนวนคนแยกกรุ๊ป (นิสิตวิศวะ)</h3></div><div class="chart-box"><canvas id="cGroup"></canvas></div></div>
       <div class="card" style="margin-top:14px"><div class="card-title"><h3>ลงทะเบียนรายวัน</h3></div><div class="chart-box"><canvas id="cDay"></canvas></div></div>
       <div class="card" style="margin-top:14px"><div class="card-title"><h3>ของรางวัลที่แลกไป</h3></div>
@@ -124,6 +153,21 @@
     const g = s.by_gender;
     pie('cGender', [['male', 'ชาย'], ['female', 'หญิง'], ['other', 'LGBTQ+'], ['na', 'ไม่ระบุ']].map(([k, l]) => ({ label: l, n: g[k] || 0 }))
       .concat(g['-'] ? [{ label: 'ไม่มีข้อมูล', n: g['-'], color: GREY }] : []));
+    const GKEYS = [['male', 'ชาย'], ['female', 'หญิง'], ['other', 'LGBTQ+'], ['na', 'ไม่ระบุ']];
+    // gender inside each category: one stacked bar per category, genders in a fixed colour order
+    const cats = Object.keys(CATEGORY).filter(c => s.gender_by_cat[c]);
+    const gsets = GKEYS.concat(cats.some(c => s.gender_by_cat[c]['-']) ? [['-', 'ไม่มีข้อมูล']] : []).map(([k, l], i) => ({
+      label: l, data: cats.map(c => s.gender_by_cat[c][k] || 0), backgroundColor: k === '-' ? GREY : PAL[i], borderColor: SURFACE, borderWidth: { top: 2 }, borderSkipped: false, maxBarThickness: 56 }));
+    charts.push(new Chart($('#cGenCat'), {
+      type: 'bar', data: { labels: cats.map(c => CATEGORY[c]), datasets: gsets },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.parsed.y)} คน` } } },
+        scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+    }));
+    $('#cGenCatL').innerHTML = gsets.map(d => { const n = d.data.reduce((a, x) => a + x, 0); return `<span><i style="background:${d.backgroundColor}"></i>${esc(d.label)}</span><b>${fmt(n)}</b><span>${s.total ? (n / s.total * 100).toFixed(1) : 0}%</span>`; }).join('');
+    const src = s.by_source;
+    pie('cSrc', [{ label: 'สมัครเอง', n: src.none, color: GREY }, { label: 'วิศวะชวน', n: src.eng }, { label: 'คนอื่นชวน', n: src.other }, { label: 'โค้ดพิเศษ', n: src.special }, { label: 'Redeem Code', n: src.code }]);
+    const ig = s.invited_gender;
+    pie('cInvG', GKEYS.map(([k, l]) => ({ label: l, n: ig[k] || 0 })).concat(ig['-'] ? [{ label: 'ไม่มีข้อมูล', n: ig['-'], color: GREY }] : []));
     const y = s.by_year;
     pie('cYear', ['1', '2', '3', '4', '5+'].map(k => ({ label: YEAR[k], n: y[k] || 0 }))
       .concat(y['-'] ? [{ label: 'ไม่ใช่นิสิต / ไม่ทราบ', n: y['-'], color: GREY }] : []));
@@ -154,6 +198,7 @@
     ['year', 'ชั้นปี', Object.entries(YEAR)],
     ['gender', 'เพศ', Object.entries(GENDER)],
     ['points', 'Point', [['has', 'มี Point'], ['ge10', '10 ขึ้นไป'], ['zero', '0 Point']]],
+    ['invited', 'มาจาก', [['yes', 'ถูกชวน / ใช้โค้ดชวน'], ['eng', 'วิศวะชวน'], ['no', 'สมัครเอง']]],
     ['sort', 'เรียงตาม', [['points', 'Point มากสุด'], ['friends', 'ชวนมากสุด'], ['sid', 'รหัสนิสิต']]]
   ];
   const fLabel = (k, v) => { const d = FILTERS.find(x => x[0] === k); const o = d[2].find(x => x[0] === v); return o ? o[1] : v; };
@@ -226,6 +271,7 @@
         <div class="full"><small>อีเมล</small><b>${esc(p.email)}</b></div>
         ${row('ลงทะเบียนเมื่อ', IMF.dateTH(p.created_at))}${row('เข้างาน', p.checked_in_at ? '✓ ' + IMF.dateTH(p.checked_in_at) : 'ยังไม่เข้า')}
         ${row('รหัสชวนของตัวเอง', p.ref_code)}${row('ถูกชวนโดย', d.referrer ? d.referrer.name + ' (' + d.referrer.ref_code + ')' : null)}
+        ${row('เห็นของรางวัลวิศวะ', d.can_eng ? '✓ เห็น' : 'ไม่เห็น')}${row('Redeem Code ที่ใช้', (d.codes || []).join(', '))}
       </div>
       <div class="row" style="justify-content:space-between"><h3>Point: <span style="color:var(--red-ink)">${fmt(p.points)}</span></h3><button class="btn ghost small" id="adj">± ปรับ Point</button></div>
       ${d.ledger.length ? `<ul class="list small">${d.ledger.map(l => `<li><div style="flex:1"><b>${esc(REASON[l.reason] || l.reason)}</b>${l.detail ? ` <span class="muted">· ${esc(l.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(l.created_at)}</div></div><b style="color:${l.delta > 0 ? '#0f9d58' : '#b3261e'}">${l.delta > 0 ? '+' : ''}${l.delta}</b></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่มีประวัติ Point</div>'}
@@ -352,6 +398,61 @@
     };
   }
 
+  // ---------------- redeem codes ----------------
+  async function codesTab() {
+    const el = $('#t-codes');
+    let s, codes;
+    try { [s, codes] = await Promise.all([api.settings(true), rpc('admin_redeem_codes')]); } catch (e) { return fail(el, e); }
+    const used = codes.reduce((a, c) => a + Number(c.used), 0);
+    el.innerHTML = `<div class="stack">
+      <h2 style="text-shadow:none">Redeem Code</h2>
+      <div class="grid-3 tight3"><div class="stat"><div class="v">${fmt(codes.length)}</div><div class="l">โค้ดทั้งหมด</div></div>
+        <div class="stat"><div class="v">${fmt(used)}</div><div class="l">ใช้ไปแล้ว (ครั้ง)</div></div>
+        <div class="stat"><div class="v">${fmt(codes.filter(c => c.unlock_eng).length)}</div><div class="l">โค้ดเชิญวิศวะ</div></div></div>
+      ${sec('star', 'ตั้งค่า', srow('เปิดให้กรอกโค้ด', toggle('codes_open', s.codes_open)) + srow('ใช้โค้ดเชิญวิศวะแล้วเห็นของรางวัลวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code)))}
+      ${sec('plus', 'สร้างโค้ด', `<form id="addrc" class="stack" style="margin-top:8px">
+        <div class="row nowrap"><input class="input mono" name="c" placeholder="โค้ด เช่น ENGVIP" maxlength="20" style="flex:1;min-width:0;text-transform:uppercase" required>
+          <input class="input" name="lbl" placeholder="ชื่อเรียก (ไม่บังคับ)" style="flex:1;min-width:0"></div>
+        <div class="row nowrap"><label class="f" style="flex:1"><span>ได้ Point</span><input class="input" name="pts" type="number" min="0" value="1"></label>
+          <label class="f" style="flex:1"><span>ใช้ได้กี่คน</span><input class="input" name="maxu" type="number" min="1" placeholder="ไม่จำกัด"></label></div>
+        <div class="setting" style="padding:4px 0"><b>เชิญวิศวะ <span class="small muted">· ปลดล็อกของรางวัลวิศวะ</span></b><label class="switch"><input type="checkbox" name="unlock"><i></i></label></div>
+        <button class="btn red block">${icon('plus', 18, 2.4)}สร้างโค้ด</button></form>`)}
+      ${sec('gift', 'โค้ดทั้งหมด', codes.length ? `<div class="rcl">${codes.map(c => `<div class="rcr" data-rc="${esc(c.code)}">
+          <div class="rch"><b class="mono">${esc(c.code)}</b>${c.unlock_eng ? '<span class="engb2">เชิญวิศวะ</span>' : ''}<span class="small muted" style="flex:1;min-width:0">${esc(c.label || '')}</span>
+            <span class="small">${fmt(c.used)}${c.max_uses ? ' / ' + fmt(c.max_uses) : ''} คน</span></div>
+          <div class="rcf"><label>Point<input class="numin" type="number" min="0" data-f="pts" value="${c.points}"></label>
+            <label>ใช้ได้<input class="numin" type="number" min="1" data-f="maxu" value="${c.max_uses == null ? '' : c.max_uses}" placeholder="∞"></label>
+            <label>เชิญวิศวะ<span class="switch"><input type="checkbox" data-f="unlock" ${c.unlock_eng ? 'checked' : ''}><i></i></span></label>
+            <label>เปิดใช้<span class="switch"><input type="checkbox" data-f="act" ${c.active ? 'checked' : ''}><i></i></span></label>
+            <span class="rcb"><button class="btn small" data-save>บันทึก</button><button class="btn danger small" data-del aria-label="ลบ ${esc(c.code)}">${icon('trash', 16)}</button></span></div>
+        </div>`).join('')}</div>` : '<div class="dim">ยังไม่มี</div>')}
+      <div class="hint">แก้ Point ภายหลังไม่กระทบคนที่ใช้ไปแล้ว · โค้ดที่มีคนใช้แล้วลบไม่ได้ ให้ปิด "เปิดใช้" แทน</div>
+    </div>`;
+    el.onchange = async e => {
+      const i = e.target.closest('[data-k]'); if (!i) return;
+      try { await api.setSetting(i.dataset.k, i.checked); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    const num = (v) => v === '' || v == null ? null : parseInt(v, 10);
+    $('#addrc').onsubmit = async e => {
+      e.preventDefault(); const f = e.target;
+      try {
+        if (codes.some(c => c.code === f.c.value.trim().toUpperCase())) return IMF.toast('มีโค้ดนี้แล้ว แก้ในรายการด้านล่างได้เลย', true);
+        const c = await rpc('admin_redeem_code_save', { c: f.c.value.trim(), pts: num(f.pts.value) || 0, unlock: f.unlock.checked, maxu: num(f.maxu.value), lbl: f.lbl.value.trim() || null, act: true });
+        IMF.toast('สร้างโค้ด ' + c); codesTab();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onclick = async e => {
+      const r = e.target.closest('[data-rc]'); if (!r) return;
+      const code = r.dataset.rc, c = codes.find(x => x.code === code), g = k => $(`[data-f="${k}"]`, r);
+      try {
+        if (e.target.closest('[data-del]')) { if (!confirm('ลบโค้ด ' + code + '?')) return; await rpc('admin_redeem_code_delete', { c: code }); }
+        else if (e.target.closest('[data-save]')) await rpc('admin_redeem_code_save', { c: code, pts: num(g('pts').value) || 0, unlock: g('unlock').checked, maxu: num(g('maxu').value), lbl: c.label, act: g('act').checked });
+        else return;
+        IMF.toast('บันทึกแล้ว'); codesTab();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
   // ---------------- settings ----------------
   const toLocal = (v) => v ? new Date(v).toLocaleString('sv-SE', { timeZone: 'Asia/Bangkok' }).replace(' ', 'T').slice(0, 16) : '';
   function minibar(s) {
@@ -363,17 +464,18 @@
     el.innerHTML = `<div class="stack"><h2 style="text-shadow:none">ตั้งค่า</h2><div class="acols">
       <div>${sec('users', 'ลงทะเบียน', srow('รอบนิสิตวิศวฯ', toggle('eng_round_open', s.eng_round_open)) + srow('รอบทั่วไป', toggle('general_round_open', s.general_round_open)) + srow('รอบบุคคลภายนอก (Gmail)', toggle('allow_external', s.allow_external)))}
         ${sec('ticket', 'วันงาน', srow('สแกนแลกของรางวัล', toggle('redeem_open', s.redeem_open)) + srow('เป้าหมายจำนวนคน', `<input class="numin" type="number" min="0" data-k="target" value="${esc(s.target)}" style="width:110px">`))}</div>
-      <div>${sec('home', 'เปิด / ปิดหน้า', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open)) + srow('ของรางวัล', toggle('rewards_open', s.rewards_open))
+      <div>${sec('home', 'เปิด / ปิดหน้า', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open)) + srow('ของรางวัลวิศวะ', toggle('rewards_eng_open', s.rewards_eng_open)) + srow('ของรางวัลส่วนกลาง', toggle('rewards_central_open', s.rewards_central_open))
           + srow('บัตรเข้างาน', toggle('ticket_open', s.ticket_open))
           + srow('นับถอยหลังบัตรถึง', `<input class="input" type="datetime-local" data-k="ticket_countdown_at" value="${toLocal(s.ticket_countdown_at)}" style="width:auto;max-width:210px;color-scheme:dark;padding:8px 10px">`)
           + srow('แผนผังงาน', toggle('map_open', s.map_open)))}</div>
-      <div>${sec('user', 'แถบเมนูตอนนี้', `<div id="mini" style="margin-top:8px">${minibar(s)}</div>`)}</div>
+      <div>${sec('gift', 'ของรางวัลวิศวะ · ให้คนนอกเห็นด้วย', srow('คนที่วิศวะชวน', toggle('eng_unlock_referral', s.eng_unlock_referral)) + srow('คนที่ใช้โค้ดเชิญวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code)))}
+        ${sec('user', 'แถบเมนูตอนนี้', `<div id="mini" style="margin-top:8px">${minibar(s)}</div>`)}</div>
     </div></div>`;
     el.onchange = async e => {
       const i = e.target.closest('[data-k]'); if (!i) return;
       if (i.type === 'datetime-local' && !i.value) return;
       let v = i.type === 'checkbox' ? i.checked : i.type === 'datetime-local' ? i.value + ':00+07:00' : Math.max(0, parseInt(i.value || '0', 10));
-      try { await api.setSetting(i.dataset.k, v); s[i.dataset.k] = v; $('#mini').innerHTML = minibar(s); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+      try { await api.setSetting(i.dataset.k, v); s[i.dataset.k] = v; s.rewards_open = !!(s.rewards_eng_open || s.rewards_central_open); $('#mini').innerHTML = minibar(s); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
 
@@ -404,6 +506,7 @@
     const rrow = (r) => { const key = r.id || 'new'; images[key] = r.image || null; return `<tr data-id="${r.id || ''}" data-kind="reward">
         <td><div class="thumb" data-pick="${key}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : 'เลือกรูป'}</div></td>
         <td><input class="input" name="name" value="${esc(r.name)}" placeholder="${r.id ? '' : '+ ของรางวัลใหม่'}" style="min-width:150px"><input class="input" name="description" value="${esc(r.description || '')}" placeholder="รายละเอียด (ไม่บังคับ)" style="margin-top:6px;font-size:14px;padding:8px 12px"></td>
+        <td><select class="input" name="scope" style="width:auto;padding:8px 10px"><option value="all" ${r.scope !== 'eng' ? 'selected' : ''}>ส่วนกลาง</option><option value="eng" ${r.scope === 'eng' ? 'selected' : ''}>เฉพาะวิศวะ</option></select></td>
         <td><input class="input" name="cost" type="number" min="1" value="${r.cost}" style="width:80px"></td>
         <td><input class="input" name="stock" type="number" min="0" value="${r.stock == null ? '' : r.stock}" placeholder="ไม่จำกัด" style="width:100px"></td>
         <td><input class="input" name="sort" type="number" value="${r.sort}" style="width:70px"></td>
@@ -417,8 +520,8 @@
         <td><label class="switch"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}><i></i></label></td>
         <td><button class="btn small">${a.id ? 'บันทึก' : 'เพิ่ม'}</button></td></tr>`;
     el.innerHTML = `<div class="card tscroll"><div class="card-title"><h3>ของรางวัล</h3><a class="small muted" href="rewards.html" target="_blank">ดูหน้าของรางวัล ↗</a></div>
-      <table class="t"><thead><tr><th>รูป</th><th>ชื่อ / รายละเอียด</th><th>ใช้ Point</th><th>คงเหลือ</th><th>ลำดับ</th><th>แลกซ้ำได้</th><th>แสดง</th><th></th></tr></thead><tbody>
-      ${list.concat([{ id: null, name: '', description: '', cost: 1, stock: null, sort: 0, active: true, image: null }]).map(rrow).join('')}</tbody></table>
+      <table class="t"><thead><tr><th>รูป</th><th>ชื่อ / รายละเอียด</th><th>สำหรับ</th><th>ใช้ Point</th><th>คงเหลือ</th><th>ลำดับ</th><th>แลกซ้ำได้</th><th>แสดง</th><th></th></tr></thead><tbody>
+      ${list.concat([{ id: null, name: '', description: '', cost: 1, stock: null, sort: 0, active: true, image: null, scope: 'all' }]).map(rrow).join('')}</tbody></table>
       <div class="hint">ลบของรางวัลไม่ได้ (เพราะมีประวัติการแลก) ให้ปิดสวิตช์ "แสดง" แทน · รูปจะถูกย่อเป็นสี่เหลี่ยมจัตุรัสอัตโนมัติ</div></div>
       <div class="card tscroll" style="margin-top:14px"><div class="card-title"><h3>กิจกรรมสะสม Point</h3></div>
       <table class="t"><thead><tr><th>กิจกรรม</th><th>ได้ Point</th><th>รับซ้ำได้</th><th>เปิด</th><th></th></tr></thead><tbody>
@@ -432,7 +535,7 @@
       try {
         if (tr.dataset.kind === 'reward') {
           const r = { name: g('name').value.trim(), description: g('description').value.trim() || null, cost: parseInt(g('cost').value, 10), stock: g('stock').value === '' ? null : parseInt(g('stock').value, 10),
-            sort: parseInt(g('sort').value || '0', 10), active: g('active').checked, repeatable: g('repeatable').checked, image: images[tr.dataset.id || 'new'] || null };
+            sort: parseInt(g('sort').value || '0', 10), active: g('active').checked, scope: g('scope').value, repeatable: g('repeatable').checked, image: images[tr.dataset.id || 'new'] || null };
           if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและ Point ให้ครบ', true);
           if (tr.dataset.id) r.id = Number(tr.dataset.id);
           await api.rewards.save(r);

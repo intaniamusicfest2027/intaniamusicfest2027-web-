@@ -7,10 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ลงทะเบียน · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=66">
+<link rel="stylesheet" href="assets/style.css?v=70">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
-<script src="assets/app.js?v=66"></script>
+<script src="assets/app.js?v=70"></script>
 </head>
 <body>
 <main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
@@ -87,7 +87,7 @@
     </div>
     <div class="f"><span>เพศ</span><div class="seg" id="gender">${Object.keys(GENDER).map(k => `<button type="button" data-v="${k}">${GENDER[k]}</button>`).join('')}</div></div>
     ${cat === 'eng' ? `<div class="f"><span>กรุ๊ป</span><div class="seg groups" id="group">${GROUPS.map(g => `<button type="button" data-v="${g}">${g}</button>`).join('')}</div></div>` : ''}
-    ${settings.referral_open ? `<label class="f"><span>โค้ดเพื่อน <i>(ถ้ามี)</i></span><input class="input" name="ref_code" maxlength="12" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
+    ${settings.referral_open || settings.codes_open ? `<label class="f"><span>${settings.referral_open ? 'โค้ดเพื่อน' : 'โค้ด'} <i>(ถ้ามี)</i></span><input class="input" name="ref_code" maxlength="20" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:3px" value="${esc(savedRef)}" placeholder="XXXXXX"></label>` : ''}
     <label class="check"><input type="checkbox" name="consent">
       <span>ยินยอมให้ทีมงาน INTANIA MUSIC FEST เก็บและใช้ข้อมูลนี้เพื่อการลงทะเบียน การติดต่อ และการจัดงานครั้งนี้เท่านั้น</span></label>
     <div id="err" class="errtext"></div>
@@ -127,7 +127,7 @@
       success(p.nickname);
     } catch (ex) {
       const raw = String(ex.message || '');
-      bad(/BAD_REF/.test(raw) ? f.ref_code : null, IMF.errMsg(ex));
+      bad(/BAD_REF|CODE|CODES_CLOSED/.test(raw) && !/BAD_CODE/.test(raw) ? f.ref_code : null, IMF.errMsg(ex));
       if (/ALREADY_REGISTERED/.test(raw)) setTimeout(() => location.replace(next), 1200);
       btn.disabled = false; btn.innerHTML = '<b>ลงทะเบียน</b>';
     }
