@@ -79,14 +79,20 @@
     .stl { grid-template-columns: minmax(0, 1fr); }
     .ahead .in { flex-wrap: nowrap; }
     .ahead .brandl b { font-size: 17px; }
-    .atabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; order: 0 !important; width: auto !important; margin: 0 !important;
-      padding: 0 0 env(safe-area-inset-bottom) !important; display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #0e0102; border-top: 1px solid rgba(255,255,255,.1); }
-    .atabs button { flex-direction: column; gap: 3px !important; border: 0 !important; border-radius: 0 !important; background: none !important; padding: 10px 0 12px !important; font-size: 11.5px !important; color: #c09497 !important; }
-    .atabs button svg { width: 24px; height: 24px; }
-    .atabs button.on { color: #ff6a6f !important; }
+    .atabs { display: none !important; }
     .amain { padding-bottom: 110px !important; }
     .roleb { margin-left: auto; }
   }
+  .abot { display: none; }
+  @media (max-width: 760px) {
+    .abot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+      background: #0e0102; border-top: 1px solid rgba(255,255,255,.12); padding-bottom: env(safe-area-inset-bottom); }
+    .abot button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 64px; border: 0; background: none;
+      color: #c09497; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+    .abot button.on { color: #ff6a6f; }
+  }
+  .card.stack > h3 { display: flex; align-items: center; gap: 8px; }
+  #addst { flex-wrap: wrap; } #addst [name=em] { flex: 1 1 100%; }
   .osec { display: flex; align-items: center; gap: 8px; margin: 22px 2px 10px; font-size: 19px; }
   .rcl { display: flex; flex-direction: column; }
   .rcr { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: 10px; }
@@ -134,17 +140,22 @@
       <section id="s-settings" class="hide"><div id="t-settings"></div><div id="t-team" style="margin-top:14px"></div></section>
     </div>`;
 
+  // phone: a separate bottom bar straight under <body>, so no header/stacking context can hide it
+  const bot = document.createElement('nav');
+  bot.className = 'abot'; bot.setAttribute('aria-label', 'เมนูหลังบ้าน');
+  bot.innerHTML = TABS.map(([k, l, ic], i) => `<button data-t="${k}" class="${i ? '' : 'on'}" ${i ? '' : 'aria-current="page"'}>${icon(ic, 24, 1.9)}<span>${l}</span></button>`).join('');
+  document.body.appendChild(bot);
   let psub = 'referral';
   const subFn = { referral: () => referralTab(), codes: () => codesTab(), acts: () => activitiesTab() };
   const tabFn = { overview: () => { statusStrip(); overview(); }, people, rewards: () => { visTab(); rewardsTab(); }, points: () => subFn[psub](), settings: () => { settingsTab(); teamTab(); } };
   let active = 'overview';
   function go(t, sub) {
     if (sub) { psub = sub; $$('#psub button').forEach(x => x.classList.toggle('on', x.dataset.p === sub)); ['referral', 'codes', 'acts'].forEach(k => $('#t-' + k).classList.toggle('hide', k !== sub)); }
-    $$('#tabs button').forEach(x => { x.classList.toggle('on', x.dataset.t === t); if (x.dataset.t === t) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
+    $$('#tabs button, .abot button').forEach(x => { x.classList.toggle('on', x.dataset.t === t); if (x.dataset.t === t) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
     $$('.amain > section').forEach(x => x.classList.toggle('hide', x.id !== 's-' + t));
     active = t; window.scrollTo(0, 0); tabFn[t]();
   }
-  $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.t); };
+  $('#tabs').onclick = bot.onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.t); };
   $('#psub').onclick = e => { const b = e.target.closest('button'); if (b) go('points', b.dataset.p); };
 
   const fail = (el, e) => { el.innerHTML = `<div class="card">${esc(IMF.errMsg(e))}</div>`; };
