@@ -66,7 +66,8 @@
     CODE_FULL: 'โค้ดนี้ถูกใช้ครบจำนวนแล้ว',
     BAD_REDEEM_FORMAT: 'โค้ดต้องเป็นตัวอักษรอังกฤษหรือตัวเลข 3–20 ตัว',
     CODE_TAKEN: 'โค้ดนี้ซ้ำกับโค้ดชวนเพื่อน ลองใช้คำอื่น',
-    CODE_IN_USE: 'โค้ดนี้มีคนใช้แล้ว ลบไม่ได้ ให้ปิดสวิตช์ "เปิดใช้" แทน'
+    CODE_IN_USE: 'โค้ดนี้มีคนใช้แล้ว ลบไม่ได้ ให้ปิดสวิตช์ "เปิดใช้" แทน',
+    NO_ENG_CODE: 'ยังไม่มีโค้ดนี้ หรือโค้ดนี้ไม่ได้ตั้งเป็นโค้ดวิศวะ (สร้างที่ Point → Redeem Code)'
   };
   // longest key first, so CODES_CLOSED is not read as CLOSED
   const ERR_KEYS = Object.keys(ERRORS).sort((a, b) => b.length - a.length);
@@ -83,7 +84,7 @@
   // ------------------------------------------------------------------
   const demo = (function () {
     if (!DEMO) return null;
-    const KEY = 'imf_demo_v7';
+    const KEY = 'imf_demo_v8';
     const FAC = { '21': 'วิศวกรรมศาสตร์', '22': 'อักษรศาสตร์', '23': 'วิทยาศาสตร์', '24': 'รัฐศาสตร์', '25': 'สถาปัตยกรรมศาสตร์', '26': 'พาณิชยศาสตร์และการบัญชี', '27': 'ครุศาสตร์', '28': 'นิเทศศาสตร์', '29': 'เศรษฐศาสตร์', '30': 'แพทยศาสตร์', '33': 'เภสัชศาสตร์', '34': 'นิติศาสตร์' };
     const firsts = ['ภูมิ','ต้นข้าว','มายด์','ปั้น','ฟ้า','ไนน์','บีม','แพรว','ภู','เฟิร์น','กาย','ข้าวหอม','ปลื้ม','อิง','ชิน','น้ำ','บอส','พลอย'];
     const lasts = ['ศรีสุข','วงศ์ใหญ่','ทองดี','สายสุวรรณ','บุญมา','เจริญผล','แก้วกาญจนา','สุขเกษม'];
@@ -112,7 +113,7 @@
       return {
         user: null,
         settings: { eng_round_open: true, general_round_open: false, allow_external: true, referral_open: true, points_per_referral: 1, points_per_referral_eng: 2, points_signup_bonus: 1, points_signup_bonus_eng: 1, leaderboard_open: true, rewards_open: false, ticket_open: false, ticket_countdown_at: '2027-01-15T10:00:00+07:00', map_open: false, redeem_open: true, target: 12000,
-          rewards_eng_open: true, rewards_central_open: false, eng_unlock_referral: true, eng_unlock_code: true, codes_open: true },
+          eng_rewards_view: 'all', rewards_central_open: false, eng_unlock_referral: true, eng_unlock_code: true, codes_open: true },
         ref_codes: [], redeem_requests: [], code_uses: [],
         redeem_codes: [{ code: 'ENGVIP', label: 'เชิญวิศวะ', points: 2, unlock_eng: true, max_uses: 100, active: true, created_at: new Date().toISOString() }, { code: 'IMF2027', label: 'โพสต์ IG', points: 1, unlock_eng: false, max_uses: null, active: true, created_at: new Date().toISOString() }],
         profiles, ledger, staff: [],
@@ -134,7 +135,14 @@
     const canEng = (p) => !!p && (p.category === 'eng'
       || (db.settings.eng_unlock_referral && (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng')
       || (db.settings.eng_unlock_code && db.code_uses.some(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng)));
-    const rewardOpen = (p, w) => w.scope === 'eng' ? !!db.settings.rewards_eng_open && canEng(p) : !!db.settings.rewards_central_open;
+    const isEng = (p) => !!p && p.category === 'eng';
+    const invEng = (p) => (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng';
+    const engCode = (p) => db.code_uses.some(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng);
+    const engTag = (p) => isEng(p) ? 'eng' : invEng(p) ? 'inv' : engCode(p) ? 'code' : 'none';
+    const engView = () => db.settings.eng_rewards_view || 'off';
+    // can SEE / can REDEEM (same rules as the server)
+    const rewardVisible = (p, w) => w.scope === 'eng' ? (engView() === 'all' || (engView() === 'eng' && isEng(p))) : !!db.settings.rewards_central_open;
+    const rewardOpen = (p, w) => w.scope === 'eng' ? (engView() === 'all' ? canEng(p) : engView() === 'eng' && isEng(p)) : !!db.settings.rewards_central_open;
     const detail = (l) => { const f = db.profiles.find(x => x.id === l.related_user), r = db.rewards.find(x => x.id === l.reward_id), a = db.activities.find(x => x.id === l.activity_id); return r ? r.name : a ? a.name : f ? full(f) : (l.note || null); };
 
     const rpc = {
@@ -187,11 +195,12 @@
         save(); return { ref_code: row.ref_code, bonus, unlock_eng: unlock };
       },
       my_rewards() {
-        const m = me(), s = db.settings, ce = canEng(m), adm = db.settings._demo_admin !== false;
-        return { eng_open: !!s.rewards_eng_open, central_open: !!s.rewards_central_open, can_eng: ce, admin: adm,
-          can_unlock: !!(s.rewards_eng_open && !ce && m && s.codes_open && s.eng_unlock_code),
-          items: db.rewards.filter(w => w.active && (adm || rewardOpen(m, w))).sort((a, b) => (a.sort || 0) - (b.sort || 0) || a.cost - b.cost)
-            .map(w => ({ ...w, scope: w.scope || 'all', open: rewardOpen(m, w) })) };
+        const m = me(), s = db.settings, adm = db.settings._demo_admin !== false, E = { scope: 'eng' };
+        const vis = rewardVisible(m, E), ok = rewardOpen(m, E);
+        return { eng_view: engView(), eng_open: vis, central_open: !!s.rewards_central_open, can_eng: ok, admin: adm,
+          can_unlock: !!(engView() === 'all' && !ok && m && s.codes_open && s.eng_unlock_code),
+          items: db.rewards.filter(w => w.active && (adm || rewardVisible(m, w))).sort((a, b) => (a.sort || 0) - (b.sort || 0) || a.cost - b.cost)
+            .map(w => ({ ...w, scope: w.scope || 'all', open: rewardOpen(m, w), locked: w.scope === 'eng' && vis && !ok })) };
       },
       my_code_redeem({ c }) {
         const m = me(), k = String(c || '').trim().toUpperCase(); if (!m) fail('NOT_FOUND');
@@ -226,7 +235,7 @@
       my_redeem_start({ reward }) {
         const m = me(), s = db.settings, w = db.rewards.find(x => x.id === reward && x.active);
         if (!s.redeem_open) fail('REDEEM_CLOSED'); if (!w) fail('BAD_REWARD');
-        if (!rewardOpen(m, w)) fail(w.scope === 'eng' && !canEng(m) ? 'ENG_REWARD_ONLY' : 'REWARDS_CLOSED');
+        if (!rewardOpen(m, w)) fail(w.scope === 'eng' && engView() !== 'off' ? 'ENG_REWARD_ONLY' : 'REWARDS_CLOSED');
         if (w.repeatable === false && db.ledger.some(l => l.user_id === m.id && l.reward_id === w.id)) fail('ALREADY_REDEEMED');
         if (w.stock != null && w.stock <= 0) fail('OUT_OF_STOCK'); if (m.points < w.cost) fail('NOT_ENOUGH_POINTS');
         db.redeem_requests.forEach(q => { if (q.user_id === m.id && q.status === 'pending') q.status = 'cancelled'; });
@@ -287,7 +296,7 @@
       staff_redeem({ uid, reward }) {
         if (!db.settings.redeem_open) fail('REDEEM_CLOSED');
         const r = db.profiles.find(p => p.id === uid), w = db.rewards.find(x => x.id === reward && x.active);
-        if (!w) fail('BAD_REWARD'); if (w.scope === 'eng' && !canEng(r)) fail('ENG_REWARD_ONLY');
+        if (!w) fail('BAD_REWARD'); if (w.scope === 'eng' && !(engView() === 'eng' ? isEng(r) : canEng(r))) fail('ENG_REWARD_ONLY');
         if (w.repeatable === false && db.ledger.some(l => l.user_id === uid && l.reward_id === w.id)) fail('ALREADY_REDEEMED'); if (r.points < w.cost) fail('NOT_ENOUGH_POINTS'); if (w.stock !== null && w.stock <= 0) fail('OUT_OF_STOCK');
         if (w.stock !== null) w.stock--; r.points -= w.cost; db.ledger.push({ user_id: r.id, delta: -w.cost, reason: 'redeem', reward_id: w.id, created_at: new Date().toISOString() }); save();
         return { points: r.points, reward: w.name };
@@ -327,18 +336,34 @@
         const rows = db.profiles.filter(p => (!q || [p.first_name, p.last_name, p.nickname, p.email, p.phone, p.ref_code, p.student_id, p.faculty].some(v => v && String(v).toLowerCase().includes(q)))
             && (!f.checked || (f.checked === 'yes') === !!p.checked_in_at) && (!f.category || p.category === f.category) && (!f.group || p.group_code === f.group)
             && (!f.faculty || p.faculty === f.faculty) && (!f.year || p.year === f.year) && (!f.gender || p.gender === f.gender)
+            && (!f.eng || engTag(p) === f.eng)
             && (!f.invited || (f.invited === 'yes' ? !!(p.referred_by || p.used_code) : f.invited === 'no' ? !(p.referred_by || p.used_code) : (db.profiles.find(r => r.id === p.referred_by) || {}).category === 'eng'))
             && (!f.points || (f.points === 'has' ? p.points > 0 : f.points === 'ge10' ? p.points >= 10 : p.points === 0)))
           .map(p => ({ ...p, friends: friends(p) }))
           .sort((a, b) => f.sort === 'points' ? b.points - a.points : f.sort === 'friends' ? b.friends - a.friends : f.sort === 'sid' ? String(a.student_id || '~').localeCompare(String(b.student_id || '~')) : b.created_at.localeCompare(a.created_at));
-        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, total_count: rows.length }));
+        return rows.slice(off, off + lim).map(p => ({ ...p, referrer_code: (db.profiles.find(r => r.id === p.referred_by) || {}).ref_code || null, inv_eng: invEng(p), eng_code: engCode(p), total_count: rows.length }));
       },
       admin_person({ uid }) {
         const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND');
         const r = db.profiles.find(x => x.id === p.referred_by);
-        return { profile: { ...p }, referrer: r ? { name: full(r), ref_code: r.ref_code } : null, can_eng: canEng(p), codes: db.code_uses.filter(u => u.user_id === p.id).map(u => u.code),
+        return { profile: { ...p }, referrer: r ? { name: full(r), ref_code: r.ref_code, category: r.category, group_code: r.group_code } : null, can_eng: canEng(p), codes: db.code_uses.filter(u => u.user_id === p.id).map(u => u.code),
+          eng_codes: db.code_uses.filter(u => u.user_id === p.id && (db.redeem_codes.find(c => c.code === u.code) || {}).unlock_eng).map(u => ({ code: u.code, at: u.created_at })),
           invited: db.profiles.filter(f => f.referred_by === p.id).map(f => ({ name: full(f), student_id: f.student_id, created_at: f.created_at })),
           ledger: db.ledger.filter(l => l.user_id === uid).slice().reverse().map(l => ({ created_at: l.created_at, delta: l.delta, reason: l.reason, detail: detail(l) })) };
+      },
+      admin_set_referrer({ uid, who }) {
+        const p = db.profiles.find(x => x.id === uid); if (!p) fail('NOT_FOUND'); const w = String(who || '').trim();
+        if (!w) { p.referred_by = null; save(); return { referrer: null }; }
+        const r = db.profiles.find(x => x.ref_code === w.toUpperCase() || x.student_id === w || x.email === w.toLowerCase());
+        if (!r || r.id === uid) fail('BAD_REF'); p.referred_by = r.id; p.used_code = r.ref_code; save();
+        return { referrer: { name: full(r), ref_code: r.ref_code, category: r.category, group_code: r.group_code } };
+      },
+      admin_set_eng_code({ uid, c }) {
+        const k = String(c || '').trim().toUpperCase();
+        if (!k) { db.code_uses = db.code_uses.filter(u => !(u.user_id === uid && (db.redeem_codes.find(x => x.code === u.code) || {}).unlock_eng)); save(); return null; }
+        if (!db.redeem_codes.some(x => x.code === k && x.unlock_eng)) fail('NO_ENG_CODE');
+        if (!db.code_uses.some(u => u.user_id === uid && u.code === k)) db.code_uses.push({ code: k, user_id: uid, points: 0, created_at: new Date().toISOString() });
+        save(); return null;
       },
       admin_delete_person({ uid }) { const m = me(); if (m && m.id === uid) fail('CANNOT_REMOVE_SELF'); db.profiles = db.profiles.filter(p => p.id !== uid); db.profiles.forEach(p => { if (p.referred_by === uid) p.referred_by = null; }); db.ledger = db.ledger.filter(l => l.user_id !== uid); save(); return null; },
       admin_add_staff({ em, r }) { db.staff = db.staff.filter(s => s.email !== em); db.staff.push({ user_id: uuid(), email: em, role: r, added_at: new Date().toISOString() }); save(); return null; },
@@ -385,7 +410,10 @@
 
   let settingsP = null, infoP = null;
   // the rewards page is open when either the Engineering or the central rewards are open
-  function withRewards(s) { if ('rewards_eng_open' in s || 'rewards_central_open' in s) s.rewards_open = !!(s.rewards_eng_open || s.rewards_central_open); return s; }
+  function withRewards(s) {
+    if ('eng_rewards_view' in s || 'rewards_central_open' in s) s.rewards_open = (s.eng_rewards_view || 'off') !== 'off' || !!s.rewards_central_open;
+    return s;
+  }
   const api = {
     rpc,
     rewards: table('rewards', ['sort', 'cost']),
@@ -513,6 +541,8 @@
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     star: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>'
   };
   const icon = (n, size = 22, sw = 1.9) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n] || ''}</svg>`;

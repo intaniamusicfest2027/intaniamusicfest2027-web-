@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>หลังบ้าน · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=70">
+<link rel="stylesheet" href="assets/style.css?v=80">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/vendor/chart.umd.js"></script>
-<script src="assets/app.js?v=70"></script>
+<script src="assets/app.js?v=80"></script>
 <style>
   .chart-box { position: relative; height: 230px; }
   .legend span:nth-child(3n+1) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -27,6 +27,66 @@
   .tight3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 10px; }
   .tight3 .stat .v { font-size: 26px; }
   @media (max-width: 600px) { .amain .grid-2 { grid-template-columns: minmax(0, 1fr) !important; } }
+  .h2s { text-shadow: none; margin: 0 2px 10px; font-size: 22px; }
+  .atabs button { display: inline-flex; align-items: center; gap: 7px; }
+  .atabs button svg { width: 19px; height: 19px; }
+  .setting .sl { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .setting .sl small { color: var(--ink-3); font-size: 12.5px; font-weight: 500; margin-top: 1px; }
+  .seg3 { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.16); }
+  .seg3 button { flex: 1; min-height: 42px; border: 0; border-radius: 9px; background: none; color: #f0c9cc; font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; padding: 0 8px; }
+  .seg3 button.on { background: #fff; color: #8e0a10; }
+  .stl { padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); overflow: hidden; }
+  .strow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 10px 16px; border: 0; border-top: 1px solid rgba(255,255,255,.08); background: none; color: #fff; font: inherit; font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; }
+  .strow > span:first-child { flex: 1; }
+  .strow svg { color: var(--ink-3); flex: none; }
+  .strow:hover { background: rgba(255,255,255,.04); }
+  .schip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+  .schip.on { background: #0b3d22; color: #4be08c; }
+  .schip.off { background: rgba(255,255,255,.08); color: #d9b8bb; }
+  .schip.mid { background: #4a3300; color: #ffd27a; }
+  .vis .lbl { font-size: 13.5px; font-weight: 700; color: #f0c9cc; margin: 10px 0 6px; }
+  .vis h3 .engb2, .engsec h3 .engb2 { margin-right: 2px; }
+  .subbox { border: 1px solid rgba(255,255,255,.14); border-radius: 12px; background: rgba(0,0,0,.3); padding: 0 14px; }
+  .sumbox { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: rgba(255,194,75,.1); border: 1px solid rgba(255,194,75,.4); color: #ffe2a3; font-size: 13.5px; line-height: 1.5; }
+  .sumbox svg { flex: none; margin-top: 1px; }
+  .qchips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .qchips button { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.35); color: #f0c9cc; font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .qchips button.on { background: #fff; color: #8e0a10; border-color: #fff; }
+  .tagb { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+  .tagb.eng { background: #d8141c; color: #fff; } .tagb.inv { background: #0b3d22; color: #4be08c; } .tagb.code { background: #4a3300; color: #ffd27a; } .tagb.none { background: rgba(255,255,255,.08); color: #d9b8bb; }
+  .pcard2 .tx .bdg { display: block; margin-top: 4px; }
+  .engsec { border: 1px solid #e3cfd1; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .engsec h3 { display: flex; align-items: center; gap: 6px; margin: 0; }
+  .res { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; }
+  .res div { display: flex; flex-direction: column; } .res span { font-size: 13px; }
+  .res.ok { background: #e3f6ea; color: #0f6b39; } .res.no { background: #f4eaeb; color: #5c3a3d; }
+  .erow { display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid #efe3e4; flex-wrap: wrap; }
+  .erow .et { flex: 1; min-width: 180px; display: flex; flex-direction: column; } .erow .et span { font-size: 13px; color: #6b4a4d; }
+  .rwgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+  .rwc { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+  .rwtop { display: flex; gap: 12px; align-items: flex-start; }
+  .rwn { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .input.sm { font-size: 14px; padding: 8px 12px; }
+  .rwf { display: grid; grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ff { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+  .ff .input { padding: 8px 10px; min-width: 0; }
+  .rwb { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .rwb > .btn { margin-left: auto; min-height: 44px; }
+  .ff.sw { align-items: flex-start; }
+  @media (max-width: 760px) {
+    .rwgrid { grid-template-columns: minmax(0, 1fr); }
+    .rwf { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stl { grid-template-columns: minmax(0, 1fr); }
+    .ahead .in { flex-wrap: nowrap; }
+    .ahead .brandl b { font-size: 17px; }
+    .atabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; order: 0 !important; width: auto !important; margin: 0 !important;
+      padding: 0 0 env(safe-area-inset-bottom) !important; display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); background: #0e0102; border-top: 1px solid rgba(255,255,255,.1); }
+    .atabs button { flex-direction: column; gap: 3px !important; border: 0 !important; border-radius: 0 !important; background: none !important; padding: 10px 0 12px !important; font-size: 11.5px !important; color: #c09497 !important; }
+    .atabs button svg { width: 24px; height: 24px; }
+    .atabs button.on { color: #ff6a6f !important; }
+    .amain { padding-bottom: 110px !important; }
+    .roleb { margin-left: auto; }
+  }
   .osec { display: flex; align-items: center; gap: 8px; margin: 22px 2px 10px; font-size: 19px; }
   .rcl { display: flex; flex-direction: column; }
   .rcr { padding: 12px 0; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; gap: 10px; }
@@ -56,27 +116,100 @@
   }
   if (!info.is_admin) { root.innerHTML = `<div class="inner"><div class="card" style="margin-top:60px">บัญชี ${esc(info.email)} ไม่ใช่แอดมิน · <a href="index.html">กลับหน้าเว็บ</a></div></div>`; return; }
 
-  const TABS = [['overview', 'ภาพรวม'], ['people', 'รายชื่อ'], ['referral', 'การชวน'], ['codes', 'Redeem Code'], ['rewards', 'ของรางวัล & กิจกรรม'], ['settings', 'ตั้งค่า'], ['team', 'ทีมงาน']];
+  // 5 sections; on a phone they become a bottom bar like the main site
+  const TABS = [['overview', 'ภาพรวม', 'home'], ['people', 'คน', 'users'], ['rewards', 'ของรางวัล', 'gift'], ['points', 'Point', 'star'], ['settings', 'ตั้งค่า', 'gear']];
   root.innerHTML = `<header class="ahead"><div class="in">
       <a class="backbtn" href="index.html" aria-label="กลับหน้าเว็บ">${icon('back', 22)}</a>
       <span class="brandl"><img src="${IMF.LOGO}" alt="INTANIA MUSIC FEST"><b>หลังบ้าน</b></span>
-      <nav class="atabs" id="tabs">${TABS.map(([k, l], i) => `<button data-t="${k}" class="${i ? '' : 'on'}">${l}</button>`).join('')}</nav>
+      <nav class="atabs" id="tabs" aria-label="เมนูหลังบ้าน">${TABS.map(([k, l, ic], i) => `<button data-t="${k}" class="${i ? '' : 'on'}" ${i ? '' : 'aria-current="page"'}>${icon(ic, 22, 1.9)}<span>${l}</span></button>`).join('')}</nav>
       <span class="roleb">${info.is_owner ? 'OWNER' : 'ADMIN'}</span>
     </div></header>
-    <div class="amain">${TABS.map(([k], i) => `<section id="t-${k}" class="${i ? 'hide' : ''}"></section>`).join('')}</div>`;
+    <div class="amain">
+      <section id="s-overview"><div id="t-status"></div><div id="t-overview" style="margin-top:14px"></div></section>
+      <section id="s-people" class="hide"><div id="t-people"></div></section>
+      <section id="s-rewards" class="hide"><div id="t-vis"></div><div id="t-rewards" style="margin-top:14px"></div></section>
+      <section id="s-points" class="hide"><h2 style="text-shadow:none;margin-bottom:10px">Point</h2>
+        <div class="seg3" id="psub">${[['referral', 'ชวนเพื่อน'], ['codes', 'Redeem Code'], ['acts', 'กิจกรรม']].map(([k, l], i) => `<button type="button" data-p="${k}" class="${i ? '' : 'on'}">${l}</button>`).join('')}</div>
+        <div id="t-referral" style="margin-top:14px"></div><div id="t-codes" class="hide" style="margin-top:14px"></div><div id="t-acts" class="hide" style="margin-top:14px"></div></section>
+      <section id="s-settings" class="hide"><div id="t-settings"></div><div id="t-team" style="margin-top:14px"></div></section>
+    </div>`;
 
-  const tabFn = { overview, people, referral: referralTab, codes: codesTab, rewards: rewardsTab, settings: settingsTab, team: teamTab };
+  let psub = 'referral';
+  const subFn = { referral: () => referralTab(), codes: () => codesTab(), acts: () => activitiesTab() };
+  const tabFn = { overview: () => { statusStrip(); overview(); }, people, rewards: () => { visTab(); rewardsTab(); }, points: () => subFn[psub](), settings: () => { settingsTab(); teamTab(); } };
   let active = 'overview';
-  $('#tabs').onclick = e => {
-    const b = e.target.closest('button'); if (!b) return;
-    $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
-    $$('.amain > section').forEach(x => x.classList.add('hide'));
-    active = b.dataset.t; $('#t-' + active).classList.remove('hide'); tabFn[active]();
-  };
+  function go(t, sub) {
+    if (sub) { psub = sub; $$('#psub button').forEach(x => x.classList.toggle('on', x.dataset.p === sub)); ['referral', 'codes', 'acts'].forEach(k => $('#t-' + k).classList.toggle('hide', k !== sub)); }
+    $$('#tabs button').forEach(x => { x.classList.toggle('on', x.dataset.t === t); if (x.dataset.t === t) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); });
+    $$('.amain > section').forEach(x => x.classList.toggle('hide', x.id !== 's-' + t));
+    active = t; window.scrollTo(0, 0); tabFn[t]();
+  }
+  $('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.t); };
+  $('#psub').onclick = e => { const b = e.target.closest('button'); if (b) go('points', b.dataset.p); };
+
   const fail = (el, e) => { el.innerHTML = `<div class="card">${esc(IMF.errMsg(e))}</div>`; };
   const yearTxt = (y) => y ? (YEAR[y] || y) : '–';
   const toggle = (k, on) => `<label class="switch"><input type="checkbox" data-k="${k}" ${on ? 'checked' : ''}><i></i></label>`;
-  const srow = (label, ctrl) => `<div class="setting"><b>${label}</b>${ctrl}</div>`;
+  const srow = (label, ctrl, desc) => `<div class="setting"><div class="sl"><b>${label}</b>${desc ? `<small>${desc}</small>` : ''}</div>${ctrl}</div>`;
+  const seg = (key, cur, opts) => `<div class="seg3" data-seg="${key}">${opts.map(([v, l]) => `<button type="button" data-v="${v}" class="${String(cur) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const STAT = { on: ['เปิด', 'on'], off: ['ปิด', 'off'], mid: ['', 'mid'] };
+  const chipS = (kind, text) => `<span class="schip ${kind}">${text || STAT[kind][0]}</span>`;
+  const VIEW = { off: ['ปิด', 'off'], eng: ['เฉพาะวิศวะเห็น', 'mid'], all: ['ทุกคนเห็น', 'on'] };
+
+  // ---------------- what is open right now ----------------
+  async function statusStrip() {
+    const el = $('#t-status');
+    let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
+    const v = VIEW[s.eng_rewards_view] || VIEW.off;
+    const rows = [
+      ['ลงทะเบียน · รอบวิศวะ', s.eng_round_open ? 'on' : 'off', '', 'settings'],
+      ['ลงทะเบียน · รอบจุฬาฯ', s.general_round_open ? 'on' : 'off', '', 'settings'],
+      ['ลงทะเบียน · บุคคลภายนอก', s.allow_external && s.general_round_open ? 'on' : 'off', '', 'settings'],
+      ['ของรางวัล Exclusive วิศวะ', v[1], v[0], 'rewards'],
+      ['ของรางวัลทั่วไป', s.rewards_central_open ? 'on' : 'off', '', 'rewards'],
+      ['จุดแลกของรางวัล', s.redeem_open ? 'on' : 'off', '', 'rewards'],
+      ['ชวนเพื่อน', s.referral_open ? 'on' : 'off', '', 'points', 'referral'],
+      ['Redeem Code', s.codes_open ? 'on' : 'off', '', 'points', 'codes'],
+      ['อันดับกลุ่ม', s.leaderboard_open ? 'on' : 'off', '', 'settings'],
+      ['บัตรเข้างาน / QR', s.ticket_open ? 'on' : 'off', '', 'settings'],
+      ['แผนผังงาน', s.map_open ? 'on' : 'off', '', 'settings']
+    ];
+    el.innerHTML = `<h2 class="h2s">เปิดอะไรอยู่ตอนนี้</h2><div class="card stl">${rows.map(([l, k, t, tab, sub]) =>
+      `<button type="button" class="strow" data-go="${tab}" data-sub="${sub || ''}"><span>${l}</span>${chipS(k, t)}${icon('chev', 18)}</button>`).join('')}</div>`;
+    el.onclick = e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go, b.dataset.sub || null); };
+  }
+
+  // ---------------- rewards: who sees / who can redeem ----------------
+  async function visTab() {
+    const el = $('#t-vis');
+    let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
+    const view = s.eng_rewards_view || 'off';
+    const ways = [s.eng_unlock_referral ? 'คนที่วิศวะชวน' : '', s.eng_unlock_code ? 'คนที่ใช้โค้ดวิศวะ' : ''].filter(Boolean);
+    const summary = view === 'off' ? 'ไม่มีใครเห็นของรางวัลวิศวะ'
+      : view === 'eng' ? 'เห็นและแลกได้เฉพาะนิสิตวิศวะ · คนอื่นมองไม่เห็น'
+      : 'ทุกคนเห็น · แลกได้: นิสิตวิศวะ' + (ways.length ? ' และ' + ways.join(' และ') : '') + ' · คนอื่นเห็นแต่กดแลกไม่ได้';
+    el.innerHTML = `<h2 class="h2s">ของรางวัล</h2><div class="acols">
+      <div class="card sec vis"><h3><span class="engb2">ENG</span>Exclusive วิศวะ</h3>
+        <div class="lbl">ใครเห็น</div>${seg('eng_rewards_view', view, [['off', 'ปิด'], ['eng', 'เฉพาะวิศวะ'], ['all', 'ทุกคน']])}
+        ${view === 'all' ? `<div class="lbl">ใครแลกได้</div><div class="subbox">
+          ${srow('นิสิตวิศวะ', '<span class="schip off">' + icon('lock', 13, 2.4) + 'ได้เสมอ</span>')}
+          ${srow('คนที่วิศวะชวน', toggle('eng_unlock_referral', s.eng_unlock_referral))}
+          ${srow('คนที่ใช้โค้ดวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code), 'สร้างโค้ดได้ที่ Point → Redeem Code')}</div>` : ''}
+        <div class="sumbox">${icon('eye', 18)}<span>${summary}</span></div></div>
+      <div>
+        <div class="card sec vis"><h3>ของรางวัลทั่วไป</h3><div class="lbl">ใครเห็น</div>${seg('rewards_central_open', !!s.rewards_central_open, [[false, 'ปิด'], [true, 'เปิดให้ทุกคน']])}</div>
+        <div class="card sec" style="margin-top:14px">${srow('เปิดจุดแลก (วันงาน)', toggle('redeem_open', s.redeem_open), 'Staff สแกน QR แลกของได้')}</div>
+      </div></div>`;
+    el.onclick = async e => {
+      const b = e.target.closest('[data-seg] button'); if (!b) return;
+      const k = b.closest('[data-seg]').dataset.seg, v = b.dataset.v === 'true' ? true : b.dataset.v === 'false' ? false : b.dataset.v;
+      try { await api.setSetting(k, v); IMF.toast('บันทึกแล้ว'); visTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+    el.onchange = async e => {
+      const i = e.target.closest('[data-k]'); if (!i) return;
+      try { await api.setSetting(i.dataset.k, i.checked); IMF.toast('บันทึกแล้ว'); visTab(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
   const sec = (ic, title, body) => `<div class="card sec"><h3>${icon(ic, 19)}${title}</h3>${body}</div>`;
 
   // ---------------- overview ----------------
@@ -199,6 +332,7 @@
     ['gender', 'เพศ', Object.entries(GENDER)],
     ['points', 'Point', [['has', 'มี Point'], ['ge10', '10 ขึ้นไป'], ['zero', '0 Point']]],
     ['invited', 'มาจาก', [['yes', 'ถูกชวน / ใช้โค้ดชวน'], ['eng', 'วิศวะชวน'], ['no', 'สมัครเอง']]],
+    ['eng', 'สิทธิ์ของวิศวะ', [['eng', 'นิสิตวิศวะ'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์']]],
     ['sort', 'เรียงตาม', [['points', 'Point มากสุด'], ['friends', 'ชวนมากสุด'], ['sid', 'รหัสนิสิต']]]
   ];
   const fLabel = (k, v) => { const d = FILTERS.find(x => x[0] === k); const o = d[2].find(x => x[0] === v); return o ? o[1] : v; };
@@ -212,6 +346,7 @@
         <div class="row" style="justify-content:space-between"><h2 style="text-shadow:none">รายชื่อ</h2><span class="muted" id="pinfo"></span></div>
         <div class="row nowrap"><form id="search" class="row nowrap" style="flex:1;min-width:0"><input class="input" name="q" placeholder="ค้นหาชื่อ รหัสนิสิต เบอร์ หรือโค้ด" style="flex:1;min-width:0"><button class="btn small">${icon('search', 18)}</button></form>
           <button class="btn ghost small ftoggle" id="ftog">${icon('filter', 17)}ตัวกรอง</button></div>
+        <div class="qchips" id="qchips">${[['', 'ทั้งหมด'], ['eng', 'ENG'], ['inv', 'วิศวะชวน'], ['code', 'โค้ดวิศวะ'], ['none', 'ไม่มีสิทธิ์ ENG']].map(([v, l]) => `<button type="button" data-q="${v}">${l}</button>`).join('')}</div>
         <div class="card fpanel closed stack" id="fpanel">
           <div class="fgrid">${FILTERS.map(([k, l, opts]) => `<label>${l}<select data-f="${k}"><option value="">${k === 'sort' ? 'ลงทะเบียนล่าสุด' : 'ทั้งหมด'}</option>${opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('')}</select></label>`).join('')}</div>
           <div class="row" id="fchips"></div>
@@ -224,6 +359,7 @@
       $('#next').onclick = () => { page++; people(); };
       $('#csv').onclick = exportCsv;
       $('#ftog').onclick = () => $('#fpanel').classList.toggle('closed');
+      $('#qchips').onclick = e => { const b = e.target.closest('[data-q]'); if (!b) return; if (b.dataset.q) F.eng = b.dataset.q; else delete F.eng; page = 0; people(); };
       $('#fpanel').onchange = e => { const s = e.target.closest('[data-f]'); if (!s) return; if (s.value) F[s.dataset.f] = s.value; else delete F[s.dataset.f]; page = 0; people(); };
       $('#fpanel').onclick = e => {
         const x = e.target.closest('[data-rmf]'); if (x) { delete F[x.dataset.rmf]; page = 0; people(); return; }
@@ -231,6 +367,7 @@
       };
       el.onclick = e => { const b = e.target.closest('[data-id]'); if (b) personModal(b.dataset.id); };
     }
+    $$('#qchips button').forEach(b => b.classList.toggle('on', (F.eng || '') === b.dataset.q));
     // reflect the filters in the selects, the chips and the toggle
     $$('#fpanel [data-f]').forEach(s => { s.value = F[s.dataset.f] || ''; s.classList.toggle('set', !!F[s.dataset.f]); });
     const keys = Object.keys(F).filter(k => k !== 'sort');
@@ -243,23 +380,38 @@
       const total = rows[0] ? Number(rows[0].total_count) : 0;
       $('#pinfo').textContent = total ? `${fmt(total)} คน` : 'ไม่พบ';
       $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * PAGE >= total;
-      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ปี</th><th>คณะ</th><th>เบอร์</th><th>โค้ดชวน</th><th style="text-align:right">ชวน</th><th style="text-align:right">Point</th><th></th></tr></thead><tbody>
+      $('#ptable').innerHTML = `<table class="t"><thead><tr><th>เข้างาน</th><th>รหัสนิสิต</th><th>ชื่อ</th><th>ปี</th><th>คณะ</th><th>เบอร์</th><th>โค้ดชวน</th><th>สิทธิ์ ENG</th><th style="text-align:right">ชวน</th><th style="text-align:right">Point</th><th></th></tr></thead><tbody>
         ${rows.map(r => `<tr>
           <td style="text-align:center">${r.checked_in_at ? '<b style="color:var(--ok)" title="เข้างานแล้ว">✓</b>' : '<span class="dim">–</span>'}</td>
           <td class="mono">${esc(r.student_id || '–')}</td><td><b>${esc(r.first_name)} ${esc(r.last_name)}</b></td>
           <td>${esc(yearTxt(r.year))}</td><td>${esc(r.faculty || CATEGORY[r.category])}</td><td class="mono">${esc(r.phone)}</td>
-          <td class="mono">${esc(r.ref_code)}</td><td class="mono" style="text-align:right">${fmt(r.friends)}</td>
+          <td class="mono">${esc(r.ref_code)}</td><td>${engBadge(r)}</td><td class="mono" style="text-align:right">${fmt(r.friends)}</td>
           <td class="mono" style="text-align:right"><b>${fmt(r.points)}</b></td><td><button class="btn ghost small" data-id="${r.id}">รายละเอียด</button></td></tr>`).join('')}</tbody></table>`;
       $('#pcards').innerHTML = rows.map(r => `<div class="pcard2" data-id="${r.id}"><span class="st ${r.checked_in_at ? 'in' : ''}">${r.checked_in_at ? icon('check', 18, 2.6) : '–'}</span>
-        <span class="tx"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><span>${esc([r.student_id, r.year ? 'ปี ' + r.year : '', 'ชวน ' + r.friends].filter(Boolean).join(' · '))}</span></span>
+        <span class="tx"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><span>${esc([r.student_id, r.year ? 'ปี ' + r.year : '', 'ชวน ' + r.friends].filter(Boolean).join(' · '))}</span><span class="bdg">${engBadge(r)}</span></span>
         <span class="pt"><b>${fmt(r.points)}</b><span>Point</span></span>${icon('chev', 18)}</div>`).join('') || '<div class="dim center">ไม่พบ</div>';
     } catch (e) { fail($('#ptable'), e); }
   }
 
+  const engBadge = (r) => r.category === 'eng' ? '<span class="tagb eng">ENG</span>' : r.inv_eng ? '<span class="tagb inv">วิศวะชวน</span>'
+    : r.eng_code ? '<span class="tagb code">โค้ดวิศวะ</span>' : '<span class="tagb none">ไม่มีสิทธิ์ ENG</span>';
   async function personModal(uid) {
-    let d;
-    try { d = await rpc('admin_person', { uid }); } catch (e) { return IMF.toast(IMF.errMsg(e), true); }
-    const p = d.profile;
+    let d, st;
+    try { [d, st] = await Promise.all([rpc('admin_person', { uid }), api.settings(true)]); } catch (e) { return IMF.toast(IMF.errMsg(e), true); }
+    const p = d.profile, ref = d.referrer, ecodes = d.eng_codes || [];
+    const isEngP = p.category === 'eng', invEng = !!(ref && ref.category === 'eng'), hasCode = ecodes.length > 0;
+    const view = st.eng_rewards_view || 'off';
+    const why = [invEng && st.eng_unlock_referral ? 'ถูกวิศวะชวน' : '', hasCode && st.eng_unlock_code ? 'ใช้โค้ดวิศวะ' : ''].filter(Boolean);
+    const canNow = isEngP || (view === 'all' && why.length > 0);
+    const resBox = isEngP ? `<div class="res ok">${icon('check', 20, 2.8)}<div><b>นิสิตวิศวะ</b><span>แลกของรางวัลวิศวะได้เสมอ</span></div></div>`
+      : canNow ? `<div class="res ok">${icon('check', 20, 2.8)}<div><b>แลกได้</b><span>${why.join(' และ')}</span></div></div>`
+      : `<div class="res no">${icon('lock', 18, 2.2)}<div><b>แลกไม่ได้</b><span>${view === 'off' ? 'ของรางวัลวิศวะปิดอยู่' : view === 'eng' ? 'ตอนนี้ตั้งเป็น "เฉพาะวิศวะ"' : (invEng || hasCode) ? 'ช่องทางที่ใช้ยังไม่ได้เปิดในหน้าของรางวัล' : 'ไม่ได้ถูกวิศวะชวน และยังไม่ได้ใช้โค้ดวิศวะ'}</span></div></div>`;
+    const engSec = `<div class="engsec"><h3><span class="engb2">ENG</span>สิทธิ์แลกของรางวัลวิศวะ</h3>${resBox}
+      <div class="erow"><div class="et"><b>ถูกเชิญโดย</b><span>${ref ? `${esc(ref.name)} · ${esc(CATEGORY[ref.category] || '')}${ref.group_code ? ' · Group ' + esc(ref.group_code) : ''} · ${esc(ref.ref_code)}` : 'ไม่มี'}</span></div>
+        <button class="btn ghost small" id="setRef">${icon('edit', 15)}${ref ? 'เปลี่ยน' : 'ใส่'}</button>${ref ? '<button class="btn ghost small" id="clrRef">ลบ</button>' : ''}</div>
+      <div class="erow"><div class="et"><b>Redeem Code วิศวะ</b><span>${hasCode ? ecodes.map(c => esc(c.code) + ' · ' + IMF.dateTH(c.at)).join(', ') : 'ยังไม่ได้ใช้'}</span></div>
+        ${hasCode ? '<button class="btn ghost small" id="clrCode">ลบ</button>' : '<button class="btn ghost small" id="setCode">' + icon('plus', 15, 2.4) + 'ใส่</button>'}</div>
+      <div class="hint" style="color:#6b4a4d">แก้แล้วมีผลทันที · Point ที่ได้ไปแล้วไม่เปลี่ยน</div></div>`;
     const row = (k, v) => `<div><small>${k}</small><b>${esc(v == null || v === '' ? '–' : v)}</b></div>`;
     const m = IMF.modal(`<div class="stack">
       <div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>${esc(p.first_name)} ${esc(p.last_name)}</h2><div class="muted">${esc(p.nickname || '')}</div></div><div class="row"><button class="btn ghost small" id="edit">✎ แก้ไขข้อมูล</button><button class="btn ghost small" data-close>ปิด</button></div></div>
@@ -271,8 +423,9 @@
         <div class="full"><small>อีเมล</small><b>${esc(p.email)}</b></div>
         ${row('ลงทะเบียนเมื่อ', IMF.dateTH(p.created_at))}${row('เข้างาน', p.checked_in_at ? '✓ ' + IMF.dateTH(p.checked_in_at) : 'ยังไม่เข้า')}
         ${row('รหัสชวนของตัวเอง', p.ref_code)}${row('ถูกชวนโดย', d.referrer ? d.referrer.name + ' (' + d.referrer.ref_code + ')' : null)}
-        ${row('เห็นของรางวัลวิศวะ', d.can_eng ? '✓ เห็น' : 'ไม่เห็น')}${row('Redeem Code ที่ใช้', (d.codes || []).join(', '))}
+        ${row('Redeem Code ที่ใช้', (d.codes || []).join(', '))}
       </div>
+      ${engSec}
       <div class="row" style="justify-content:space-between"><h3>Point: <span style="color:var(--red-ink)">${fmt(p.points)}</span></h3><button class="btn ghost small" id="adj">± ปรับ Point</button></div>
       ${d.ledger.length ? `<ul class="list small">${d.ledger.map(l => `<li><div style="flex:1"><b>${esc(REASON[l.reason] || l.reason)}</b>${l.detail ? ` <span class="muted">· ${esc(l.detail)}</span>` : ''}<div class="dim">${IMF.dateTH(l.created_at)}</div></div><b style="color:${l.delta > 0 ? '#0f9d58' : '#b3261e'}">${l.delta > 0 ? '+' : ''}${l.delta}</b></li>`).join('')}</ul>` : '<div class="dim small">ยังไม่มีประวัติ Point</div>'}
       <h3>เพื่อนที่ชวนมา (${d.invited.length})</h3>
@@ -280,6 +433,16 @@
       <button class="btn danger block" id="del">ลบคนนี้ออกจากระบบ</button>
     </div>`, { lg: true });
     $('#edit', m.el).onclick = () => { m.close(); editModal(uid, p); };
+    const redo = async (fn) => { try { await fn(); IMF.toast('บันทึกแล้ว'); m.close(); personModal(uid); people(); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); } };
+    if ($('#setRef', m.el)) $('#setRef', m.el).onclick = () => { const w = prompt('ผู้ชวน: ใส่โค้ดชวน รหัสนิสิต หรืออีเมลของผู้ชวน'); if (w && w.trim()) redo(() => rpc('admin_set_referrer', { uid, who: w.trim() })); };
+    if ($('#clrRef', m.el)) $('#clrRef', m.el).onclick = () => { if (confirm('ลบผู้ชวนของคนนี้?')) redo(() => rpc('admin_set_referrer', { uid, who: '' })); };
+    if ($('#setCode', m.el)) $('#setCode', m.el).onclick = async () => {
+      const list = (await rpc('admin_redeem_codes').catch(() => [])).filter(c => c.unlock_eng);
+      if (!list.length) return IMF.toast(IMF.errMsg('NO_ENG_CODE'), true);
+      const c = prompt('โค้ดวิศวะที่จะใส่ให้คนนี้ (' + list.map(x => x.code).join(', ') + ')', list[0].code);
+      if (c && c.trim()) redo(() => rpc('admin_set_eng_code', { uid, c: c.trim() }));
+    };
+    if ($('#clrCode', m.el)) $('#clrCode', m.el).onclick = () => { if (confirm('ลบการใช้โค้ดวิศวะของคนนี้?')) redo(() => rpc('admin_set_eng_code', { uid, c: '' })); };
     $('#adj', m.el).onclick = async () => {
       const v = prompt(`ปรับ Point ของ ${p.first_name} (ใส่ตัวเลข เช่น 5 หรือ -2)`); if (!v || isNaN(parseInt(v, 10))) return;
       const note = prompt('เหตุผล / ชื่อกิจกรรม (จะแสดงในประวัติ Point ของเขา)') || '';
@@ -355,7 +518,6 @@
     const num = (k, label) => `<input class="numin" type="number" min="0" data-k="${k}" value="${esc(s[k] ?? 0)}" aria-label="${label}">`;
     const cnum = (v, f, label, dis) => `<input class="numin" type="number" min="0" data-c="${f}" value="${v == null ? '' : esc(v)}" aria-label="${label}" ${dis ? 'disabled placeholder="–"' : ''}>`;
     el.innerHTML = `<div class="stack">
-      <h2 style="text-shadow:none">การชวน</h2>
       <div class="grid-3"><div class="stat"><div class="v">${fmt(st.referred)}</div><div class="l">ลงทะเบียนผ่านการชวน</div></div>
         <div class="stat"><div class="v">${fmt(st.points)}</div><div class="l">Point จากการชวน</div></div>
         <div class="stat"><div class="v">${fmt(codes.length)}</div><div class="l">โค้ดพิเศษ</div></div></div>
@@ -405,24 +567,23 @@
     try { [s, codes] = await Promise.all([api.settings(true), rpc('admin_redeem_codes')]); } catch (e) { return fail(el, e); }
     const used = codes.reduce((a, c) => a + Number(c.used), 0);
     el.innerHTML = `<div class="stack">
-      <h2 style="text-shadow:none">Redeem Code</h2>
       <div class="grid-3 tight3"><div class="stat"><div class="v">${fmt(codes.length)}</div><div class="l">โค้ดทั้งหมด</div></div>
         <div class="stat"><div class="v">${fmt(used)}</div><div class="l">ใช้ไปแล้ว (ครั้ง)</div></div>
-        <div class="stat"><div class="v">${fmt(codes.filter(c => c.unlock_eng).length)}</div><div class="l">โค้ดเชิญวิศวะ</div></div></div>
-      ${sec('star', 'ตั้งค่า', srow('เปิดให้กรอกโค้ด', toggle('codes_open', s.codes_open)) + srow('ใช้โค้ดเชิญวิศวะแล้วเห็นของรางวัลวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code)))}
+        <div class="stat"><div class="v">${fmt(codes.filter(c => c.unlock_eng).length)}</div><div class="l">โค้ดวิศวะ</div></div></div>
+      ${sec('star', 'ตั้งค่า', srow('เปิดให้กรอกโค้ด', toggle('codes_open', s.codes_open), 'ปุ่ม "กรอกโค้ด" ในหน้าผู้ใช้'))}
       ${sec('plus', 'สร้างโค้ด', `<form id="addrc" class="stack" style="margin-top:8px">
         <div class="row nowrap"><input class="input mono" name="c" placeholder="โค้ด เช่น ENGVIP" maxlength="20" style="flex:1;min-width:0;text-transform:uppercase" required>
           <input class="input" name="lbl" placeholder="ชื่อเรียก (ไม่บังคับ)" style="flex:1;min-width:0"></div>
         <div class="row nowrap"><label class="f" style="flex:1"><span>ได้ Point</span><input class="input" name="pts" type="number" min="0" value="1"></label>
           <label class="f" style="flex:1"><span>ใช้ได้กี่คน</span><input class="input" name="maxu" type="number" min="1" placeholder="ไม่จำกัด"></label></div>
-        <div class="setting" style="padding:4px 0"><b>เชิญวิศวะ <span class="small muted">· ปลดล็อกของรางวัลวิศวะ</span></b><label class="switch"><input type="checkbox" name="unlock"><i></i></label></div>
+        <div class="setting" style="padding:4px 0"><b>โค้ดวิศวะ <span class="small muted">· ใช้แล้วแลกของ ENG ได้</span></b><label class="switch"><input type="checkbox" name="unlock"><i></i></label></div>
         <button class="btn red block">${icon('plus', 18, 2.4)}สร้างโค้ด</button></form>`)}
       ${sec('gift', 'โค้ดทั้งหมด', codes.length ? `<div class="rcl">${codes.map(c => `<div class="rcr" data-rc="${esc(c.code)}">
-          <div class="rch"><b class="mono">${esc(c.code)}</b>${c.unlock_eng ? '<span class="engb2">เชิญวิศวะ</span>' : ''}<span class="small muted" style="flex:1;min-width:0">${esc(c.label || '')}</span>
+          <div class="rch"><b class="mono">${esc(c.code)}</b>${c.unlock_eng ? '<span class="engb2">โค้ดวิศวะ</span>' : ''}<span class="small muted" style="flex:1;min-width:0">${esc(c.label || '')}</span>
             <span class="small">${fmt(c.used)}${c.max_uses ? ' / ' + fmt(c.max_uses) : ''} คน</span></div>
           <div class="rcf"><label>Point<input class="numin" type="number" min="0" data-f="pts" value="${c.points}"></label>
             <label>ใช้ได้<input class="numin" type="number" min="1" data-f="maxu" value="${c.max_uses == null ? '' : c.max_uses}" placeholder="∞"></label>
-            <label>เชิญวิศวะ<span class="switch"><input type="checkbox" data-f="unlock" ${c.unlock_eng ? 'checked' : ''}><i></i></span></label>
+            <label>โค้ดวิศวะ<span class="switch"><input type="checkbox" data-f="unlock" ${c.unlock_eng ? 'checked' : ''}><i></i></span></label>
             <label>เปิดใช้<span class="switch"><input type="checkbox" data-f="act" ${c.active ? 'checked' : ''}><i></i></span></label>
             <span class="rcb"><button class="btn small" data-save>บันทึก</button><button class="btn danger small" data-del aria-label="ลบ ${esc(c.code)}">${icon('trash', 16)}</button></span></div>
         </div>`).join('')}</div>` : '<div class="dim">ยังไม่มี</div>')}
@@ -461,21 +622,24 @@
   async function settingsTab() {
     const el = $('#t-settings');
     let s; try { s = await api.settings(true); } catch (e) { return fail(el, e); }
-    el.innerHTML = `<div class="stack"><h2 style="text-shadow:none">ตั้งค่า</h2><div class="acols">
-      <div>${sec('users', 'ลงทะเบียน', srow('รอบนิสิตวิศวฯ', toggle('eng_round_open', s.eng_round_open)) + srow('รอบทั่วไป', toggle('general_round_open', s.general_round_open)) + srow('รอบบุคคลภายนอก (Gmail)', toggle('allow_external', s.allow_external)))}
-        ${sec('ticket', 'วันงาน', srow('สแกนแลกของรางวัล', toggle('redeem_open', s.redeem_open)) + srow('เป้าหมายจำนวนคน', `<input class="numin" type="number" min="0" data-k="target" value="${esc(s.target)}" style="width:110px">`))}</div>
-      <div>${sec('home', 'เปิด / ปิดหน้า', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open)) + srow('ของรางวัลวิศวะ', toggle('rewards_eng_open', s.rewards_eng_open)) + srow('ของรางวัลส่วนกลาง', toggle('rewards_central_open', s.rewards_central_open))
-          + srow('บัตรเข้างาน', toggle('ticket_open', s.ticket_open))
-          + srow('นับถอยหลังบัตรถึง', `<input class="input" type="datetime-local" data-k="ticket_countdown_at" value="${toLocal(s.ticket_countdown_at)}" style="width:auto;max-width:210px;color-scheme:dark;padding:8px 10px">`)
-          + srow('แผนผังงาน', toggle('map_open', s.map_open)))}</div>
-      <div>${sec('gift', 'ของรางวัลวิศวะ · ให้คนนอกเห็นด้วย', srow('คนที่วิศวะชวน', toggle('eng_unlock_referral', s.eng_unlock_referral)) + srow('คนที่ใช้โค้ดเชิญวิศวะ', toggle('eng_unlock_code', s.eng_unlock_code)))}
-        ${sec('user', 'แถบเมนูตอนนี้', `<div id="mini" style="margin-top:8px">${minibar(s)}</div>`)}</div>
-    </div></div>`;
+    el.innerHTML = `<h2 class="h2s">ตั้งค่า</h2><div class="acols">
+      <div>${sec('users', 'ลงทะเบียน', srow('รอบวิศวะ (Early Bird)', toggle('eng_round_open', s.eng_round_open), 'เฉพาะ @student.chula.ac.th รหัสลงท้าย 21')
+          + srow('รอบจุฬาฯ', toggle('general_round_open', s.general_round_open), 'นิสิตและบุคลากรจุฬาฯ ทุกคณะ')
+          + srow('รอบบุคคลภายนอก', toggle('allow_external', s.allow_external), 'เข้าด้วย Gmail ได้ (ใช้ได้เมื่อเปิดรอบจุฬาฯ)'))}
+        ${sec('home', 'หน้าเว็บ', srow('อันดับกลุ่ม', toggle('leaderboard_open', s.leaderboard_open), 'แสดงในแถบเมนูแทนของรางวัล')
+          + srow('บัตรเข้างาน / QR', toggle('ticket_open', s.ticket_open), 'ปิด = แสดงนับถอยหลัง')
+          + srow('นับถอยหลังถึง', `<input class="input" type="datetime-local" data-k="ticket_countdown_at" value="${toLocal(s.ticket_countdown_at)}" style="width:auto;max-width:210px;color-scheme:dark;padding:8px 10px">`)
+          + srow('แผนผังงาน', toggle('map_open', s.map_open), 'เปิดช่วงใกล้วันงาน'))}</div>
+      <div>${sec('gift', 'ของรางวัลและ Point', `<button type="button" class="strow" data-go="rewards"><span>ใครเห็น / ใครแลกได้</span>${icon('chev', 18)}</button><button type="button" class="strow" data-go="points"><span>ชวนเพื่อน · Redeem Code · กิจกรรม</span>${icon('chev', 18)}</button>`)}
+        ${sec('trophy', 'อื่น ๆ', srow('เป้าหมายจำนวนคน', `<input class="numin" type="number" min="0" data-k="target" value="${esc(s.target)}" style="width:110px">`))}
+        ${sec('user', 'แถบเมนูที่ผู้ใช้เห็นตอนนี้', `<div id="mini" style="margin-top:8px">${minibar(s)}</div><small class="muted" style="margin-top:8px">เปลี่ยนตามสวิตช์อันดับกลุ่ม / แผนผังงาน</small>`)}</div>
+    </div>`;
+    el.onclick = e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); };
     el.onchange = async e => {
       const i = e.target.closest('[data-k]'); if (!i) return;
       if (i.type === 'datetime-local' && !i.value) return;
       let v = i.type === 'checkbox' ? i.checked : i.type === 'datetime-local' ? i.value + ':00+07:00' : Math.max(0, parseInt(i.value || '0', 10));
-      try { await api.setSetting(i.dataset.k, v); s[i.dataset.k] = v; s.rewards_open = !!(s.rewards_eng_open || s.rewards_central_open); $('#mini').innerHTML = minibar(s); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+      try { await api.setSetting(i.dataset.k, v); s[i.dataset.k] = v; $('#mini').innerHTML = minibar(s); IMF.toast('บันทึกแล้ว'); } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
 
@@ -500,52 +664,61 @@
     });
   }
   const images = {};   // row key → data URL chosen but not saved yet
+  const ff = (label, html) => `<label class="ff"><span>${label}</span>${html}</label>`;
+  const swf = (label, name, on) => `<label class="ff sw"><span>${label}</span><span class="switch"><input type="checkbox" name="${name}" ${on ? 'checked' : ''}><i></i></span></label>`;
   async function rewardsTab() {
     const el = $('#t-rewards');
-    let list, acts; try { [list, acts] = await Promise.all([api.rewards.list(true), api.activities.list(true)]); } catch (e) { return fail(el, e); }
-    const rrow = (r) => { const key = r.id || 'new'; images[key] = r.image || null; return `<tr data-id="${r.id || ''}" data-kind="reward">
-        <td><div class="thumb" data-pick="${key}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : 'เลือกรูป'}</div></td>
-        <td><input class="input" name="name" value="${esc(r.name)}" placeholder="${r.id ? '' : '+ ของรางวัลใหม่'}" style="min-width:150px"><input class="input" name="description" value="${esc(r.description || '')}" placeholder="รายละเอียด (ไม่บังคับ)" style="margin-top:6px;font-size:14px;padding:8px 12px"></td>
-        <td><select class="input" name="scope" style="width:auto;padding:8px 10px"><option value="all" ${r.scope !== 'eng' ? 'selected' : ''}>ส่วนกลาง</option><option value="eng" ${r.scope === 'eng' ? 'selected' : ''}>เฉพาะวิศวะ</option></select></td>
-        <td><input class="input" name="cost" type="number" min="1" value="${r.cost}" style="width:80px"></td>
-        <td><input class="input" name="stock" type="number" min="0" value="${r.stock == null ? '' : r.stock}" placeholder="ไม่จำกัด" style="width:100px"></td>
-        <td><input class="input" name="sort" type="number" value="${r.sort}" style="width:70px"></td>
-        <td><label class="switch"><input type="checkbox" name="repeatable" ${r.repeatable !== false ? 'checked' : ''}><i></i></label></td>
-        <td><label class="switch"><input type="checkbox" name="active" ${r.active ? 'checked' : ''}><i></i></label></td>
-        <td><button class="btn small">${r.id ? 'บันทึก' : 'เพิ่ม'}</button></td></tr>`; };
-    const arow = (a) => `<tr data-id="${a.id || ''}" data-kind="activity">
-        <td><input class="input" name="name" value="${esc(a.name)}" placeholder="${a.id ? '' : '+ กิจกรรมใหม่ เช่น ถ่ายรูปที่ Photo booth'}" style="min-width:200px"></td>
-        <td><input class="input" name="points" type="number" min="1" value="${a.points}" style="width:80px"></td>
-        <td><label class="switch"><input type="checkbox" name="repeatable" ${a.repeatable ? 'checked' : ''}><i></i></label></td>
-        <td><label class="switch"><input type="checkbox" name="active" ${a.active ? 'checked' : ''}><i></i></label></td>
-        <td><button class="btn small">${a.id ? 'บันทึก' : 'เพิ่ม'}</button></td></tr>`;
-    el.innerHTML = `<div class="card tscroll"><div class="card-title"><h3>ของรางวัล</h3><a class="small muted" href="rewards.html" target="_blank">ดูหน้าของรางวัล ↗</a></div>
-      <table class="t"><thead><tr><th>รูป</th><th>ชื่อ / รายละเอียด</th><th>สำหรับ</th><th>ใช้ Point</th><th>คงเหลือ</th><th>ลำดับ</th><th>แลกซ้ำได้</th><th>แสดง</th><th></th></tr></thead><tbody>
-      ${list.concat([{ id: null, name: '', description: '', cost: 1, stock: null, sort: 0, active: true, image: null, scope: 'all' }]).map(rrow).join('')}</tbody></table>
-      <div class="hint">ลบของรางวัลไม่ได้ (เพราะมีประวัติการแลก) ให้ปิดสวิตช์ "แสดง" แทน · รูปจะถูกย่อเป็นสี่เหลี่ยมจัตุรัสอัตโนมัติ</div></div>
-      <div class="card tscroll" style="margin-top:14px"><div class="card-title"><h3>กิจกรรมสะสม Point</h3></div>
-      <table class="t"><thead><tr><th>กิจกรรม</th><th>ได้ Point</th><th>รับซ้ำได้</th><th>เปิด</th><th></th></tr></thead><tbody>
-      ${acts.concat([{ id: null, name: '', points: 1, active: true }]).map(arow).join('')}</tbody></table>
-      <div class="hint">ทีมงานให้ Point ในหน้าสแกน · ปิด "รับซ้ำได้" = คนละครั้ง</div></div>`;
+    let list; try { list = await api.rewards.list(true); } catch (e) { return fail(el, e); }
+    const card = (r) => { const key = r.id || 'new'; images[key] = r.image || null; return `<div class="card rwc" data-id="${r.id || ''}" data-kind="reward">
+        <div class="rwtop"><div class="thumb" data-pick="${key}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : 'เลือกรูป'}</div>
+          <div class="rwn"><input class="input" name="name" value="${esc(r.name)}" placeholder="${r.id ? 'ชื่อ' : '+ ของรางวัลใหม่'}" aria-label="ชื่อของรางวัล">
+            <input class="input sm" name="description" value="${esc(r.description || '')}" placeholder="รายละเอียด (ไม่บังคับ)" aria-label="รายละเอียด"></div>
+          ${r.scope === 'eng' ? '<span class="engb2">ENG</span>' : ''}</div>
+        <div class="rwf">${ff('สำหรับ', `<select class="input" name="scope"><option value="all" ${r.scope !== 'eng' ? 'selected' : ''}>ทั่วไป</option><option value="eng" ${r.scope === 'eng' ? 'selected' : ''}>ENG</option></select>`)}
+          ${ff('ใช้ Point', `<input class="input" name="cost" type="number" min="1" value="${r.cost}">`)}
+          ${ff('คงเหลือ', `<input class="input" name="stock" type="number" min="0" value="${r.stock == null ? '' : r.stock}" placeholder="ไม่จำกัด">`)}
+          ${ff('ลำดับ', `<input class="input" name="sort" type="number" value="${r.sort}">`)}</div>
+        <div class="rwb">${swf('แลกซ้ำได้', 'repeatable', r.repeatable !== false)}${swf('แสดง', 'active', r.active)}<button class="btn small ${r.id ? '' : 'red'}">${r.id ? 'บันทึก' : 'เพิ่ม'}</button></div></div>`; };
+    const filt = el.dataset.f || 'all';
+    const shown = list.filter(r => filt === 'all' || (filt === 'eng' ? r.scope === 'eng' : r.scope !== 'eng'));
+    el.innerHTML = `<div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="text-shadow:none">รายการ</h2><a class="small muted" href="rewards.html" target="_blank">ดูหน้าผู้ใช้ ↗</a></div>
+      <div class="seg3" id="rfilt" style="margin-bottom:12px">${[['all', `ทั้งหมด ${list.length}`], ['eng', `ENG ${list.filter(r => r.scope === 'eng').length}`], ['gen', `ทั่วไป ${list.filter(r => r.scope !== 'eng').length}`]].map(([k, l]) => `<button type="button" data-rf="${k}" class="${filt === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="rwgrid">${shown.concat([{ id: null, name: '', description: '', cost: 1, stock: null, sort: 0, active: true, image: null, scope: filt === 'eng' ? 'eng' : 'all' }]).map(card).join('')}</div>
+      <div class="hint">ลบของรางวัลไม่ได้ (เพราะมีประวัติการแลก) ให้ปิดสวิตช์ "แสดง" แทน · รูปจะถูกย่อเป็นสี่เหลี่ยมจัตุรัสอัตโนมัติ</div>`;
     el.onclick = async e => {
+      const rf = e.target.closest('[data-rf]'); if (rf) { el.dataset.f = rf.dataset.rf; rewardsTab(); return; }
       const pick = e.target.closest('[data-pick]');
       if (pick) { const url = await pickImage(); if (url) { images[pick.dataset.pick] = url; pick.style.backgroundImage = `url('${url}')`; pick.textContent = ''; } return; }
       const b = e.target.closest('button'); if (!b) return;
-      const tr = b.closest('tr'), g = n => tr.querySelector(`[name="${n}"]`);
+      const tr = b.closest('[data-kind]'), g = n => tr.querySelector(`[name="${n}"]`);
       try {
-        if (tr.dataset.kind === 'reward') {
-          const r = { name: g('name').value.trim(), description: g('description').value.trim() || null, cost: parseInt(g('cost').value, 10), stock: g('stock').value === '' ? null : parseInt(g('stock').value, 10),
-            sort: parseInt(g('sort').value || '0', 10), active: g('active').checked, scope: g('scope').value, repeatable: g('repeatable').checked, image: images[tr.dataset.id || 'new'] || null };
-          if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและ Point ให้ครบ', true);
-          if (tr.dataset.id) r.id = Number(tr.dataset.id);
-          await api.rewards.save(r);
-        } else {
-          const a = { name: g('name').value.trim(), points: parseInt(g('points').value, 10), active: g('active').checked, repeatable: g('repeatable').checked };
-          if (!a.name || !(a.points > 0)) return IMF.toast('กรอกชื่อกิจกรรมและ Point ให้ครบ', true);
-          if (tr.dataset.id) a.id = Number(tr.dataset.id);
-          await api.activities.save(a);
-        }
+        const r = { name: g('name').value.trim(), description: g('description').value.trim() || null, cost: parseInt(g('cost').value, 10), stock: g('stock').value === '' ? null : parseInt(g('stock').value, 10),
+          sort: parseInt(g('sort').value || '0', 10), active: g('active').checked, scope: g('scope').value, repeatable: g('repeatable').checked, image: images[tr.dataset.id || 'new'] || null };
+        if (!r.name || !(r.cost > 0)) return IMF.toast('กรอกชื่อและ Point ให้ครบ', true);
+        if (tr.dataset.id) r.id = Number(tr.dataset.id);
+        await api.rewards.save(r);
         IMF.toast('บันทึกแล้ว'); rewardsTab();
+      } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
+    };
+  }
+
+  async function activitiesTab() {
+    const el = $('#t-acts');
+    let acts; try { acts = await api.activities.list(true); } catch (e) { return fail(el, e); }
+    const card = (a) => `<div class="card rwc" data-id="${a.id || ''}" data-kind="activity">
+        <input class="input" name="name" value="${esc(a.name)}" placeholder="${a.id ? 'ชื่อกิจกรรม' : '+ กิจกรรมใหม่ เช่น ถ่ายรูปที่ Photo booth'}" aria-label="ชื่อกิจกรรม">
+        <div class="rwb">${ff('ได้ Point', `<input class="input" name="points" type="number" min="1" value="${a.points}" style="width:90px">`)}${swf('รับซ้ำได้', 'repeatable', a.repeatable)}${swf('เปิด', 'active', a.active)}<button class="btn small ${a.id ? '' : 'red'}">${a.id ? 'บันทึก' : 'เพิ่ม'}</button></div></div>`;
+    el.innerHTML = `<div class="rwgrid">${acts.concat([{ id: null, name: '', points: 1, active: true }]).map(card).join('')}</div>
+      <div class="hint">ทีมงานให้ Point ในหน้าสแกน (โหมดกิจกรรม) · ปิด "รับซ้ำได้" = คนละครั้ง</div>`;
+    el.onclick = async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const tr = b.closest('[data-kind]'), g = n => tr.querySelector(`[name="${n}"]`);
+      try {
+        const a = { name: g('name').value.trim(), points: parseInt(g('points').value, 10), active: g('active').checked, repeatable: g('repeatable').checked };
+        if (!a.name || !(a.points > 0)) return IMF.toast('กรอกชื่อกิจกรรมและ Point ให้ครบ', true);
+        if (tr.dataset.id) a.id = Number(tr.dataset.id);
+        await api.activities.save(a);
+        IMF.toast('บันทึกแล้ว'); activitiesTab();
       } catch (ex) { IMF.toast(IMF.errMsg(ex), true); }
     };
   }
@@ -558,7 +731,7 @@
     const can = (r) => info.is_owner || r === 'staff';   // admins manage staff only; the owner manages everyone
     const rank = { owner: 0, admin: 1, staff: 2 };
     staff.sort((a, b) => rank[a.role] - rank[b.role]);
-    el.innerHTML = `<div class="card stack" style="max-width:680px"><h3>ทีมงาน</h3>
+    el.innerHTML = `<div class="card stack"><h3>${icon('shield', 19)} ทีมงานและสิทธิ์</h3>
         <div class="hint"><b>Owner</b> ทำได้ทุกอย่าง รวมถึงเพิ่ม/ลบ/เปลี่ยนสิทธิ์แอดมินและทีมงานทุกคน · <b>แอดมิน</b> ใช้หลังบ้านได้ทั้งหมด และจัดการได้เฉพาะทีมงาน · <b>ทีมงาน</b> ใช้หน้าสแกนได้อย่างเดียว<br>คนที่จะเพิ่มต้องเข้าสู่ระบบเว็บนี้อย่างน้อย 1 ครั้งก่อน</div>
         <form id="addst" class="row"><input class="input" name="em" type="email" placeholder="อีเมล" style="flex:1" required>
           <select class="input" name="r" style="width:auto"><option value="staff">ทีมงาน</option>${info.is_owner ? '<option value="admin">แอดมิน</option><option value="owner">Owner</option>' : ''}</select><button class="btn small">เพิ่ม / เปลี่ยนสิทธิ์</button></form>
@@ -574,7 +747,7 @@
     };
   }
 
-  overview();
+  statusStrip(); overview();
 })();
 </script>
 </body>

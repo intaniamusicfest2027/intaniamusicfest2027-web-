@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ของรางวัล · INTANIA MUSIC FEST</title>
 <link rel="icon" href="assets/icon.png">
-<link rel="stylesheet" href="assets/style.css?v=70">
+<link rel="stylesheet" href="assets/style.css?v=80">
 <script src="assets/config.js"></script>
 <script src="assets/vendor/supabase.js"></script>
 <script src="assets/vendor/qrcode.js"></script>
-<script src="assets/app.js?v=70"></script>
+<script src="assets/app.js?v=80"></script>
 </head>
 <body>
 <main class="stage"><div class="inner" id="root"><div class="spinner" style="margin-top:120px"></div></div></main>
@@ -37,13 +37,14 @@
   root.addEventListener('click', e => { if (e.target.closest('#unlock')) IMF.codeModal(after); });
   function start() {
     // nothing open for this person yet → coming soon (with the unlock button if an invite code can open it)
-    if (!R.admin && !R.central_open && !(R.eng_open && R.can_eng)) { root.innerHTML = IMF.comingSoon((me ? IMF.pointPill(me.points) : '') + unlockBtn()); return; }
+    if (!R.admin && !R.central_open && !R.eng_open) { root.innerHTML = IMF.comingSoon((me ? IMF.pointPill(me.points) : '') + unlockBtn()); return; }
     render();
   }
 
   const redeemed = (r) => history.some(h => h.reason === 'redeem' && h.detail === r.name);
   function state(r) {
-    if (!r.open) return ['no', r.scope === 'eng' && !R.can_eng ? 'เฉพาะวิศวะ' : 'ยังไม่เปิด'];
+    if (r.locked) return ['lock', 'ต้องได้รับเชิญ'];
+    if (!r.open) return ['no', 'ยังไม่เปิด'];
     if (!me) return ['login', 'เข้าสู่ระบบ'];
     if (r.repeatable === false && redeemed(r)) return ['got', 'แลกแล้ว'];
     if (r.stock != null && r.stock <= 0) return ['no', 'หมดแล้ว'];
@@ -56,8 +57,8 @@
     const [k, label] = state(r);
     const btn = k === 'login' ? `<a class="act go" href="register.html">${label}</a>`
       : k === 'go' ? `<button class="act go" data-redeem="${r.id}">${label}</button>`
-      : `<span class="act ${k}">${k === 'got' ? icon('check', 16, 2.4) : ''}${label}</span>`;
-    return `<div class="rw ${r.open ? '' : 'off'}">${r.scope === 'eng' ? '<span class="engb">ENG</span>' : ''}<div class="pic" data-info="${r.id}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 34, 1.5)}</div>
+      : `<span class="act ${k === 'lock' ? 'no' : k}">${k === 'got' ? icon('check', 16, 2.4) : k === 'lock' ? icon('lock', 15, 2.2) : ''}${label}</span>`;
+    return `<div class="rw ${r.open || r.locked ? '' : 'off'}">${r.scope === 'eng' ? '<span class="engb">ENG</span>' : ''}<div class="pic" data-info="${r.id}" ${r.image ? `style="background-image:url('${esc(r.image)}')"` : ''}>${r.image ? '' : icon('gift', 34, 1.5)}</div>
       <div><div class="nm">${esc(r.name)}</div><div class="ct">${fmt(r.cost)} Point${r.stock != null ? ` · เหลือ ${fmt(r.stock)}` : ''}</div></div>${btn}</div>`;
   };
   function render() {
@@ -70,13 +71,15 @@
       <div class="stack" style="margin-top:0">
       ${hidden ? '<span class="chip warn">แอดมินเห็นทุกชิ้น · ชิ้นจาง = คนทั่วไปยังไม่เห็น</span>' : ''}
       <div class="banner">${icon('pin', 22, 2)}แลกได้ที่จุดแลกของรางวัลเท่านั้น</div>
-      ${R.can_unlock ? `<div class="unlock">${icon('lock', 22, 2)}<b>ของรางวัลวิศวะ</b><button class="btn red small" id="unlock">กรอกโค้ด</button></div>` : ''}
+
       <div class="chips" id="chips">${[['all', 'ทั้งหมด'], ['can', 'แลกได้'], ...(me ? [['hist', 'ประวัติการแลก']] : [])].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
       ${tab === 'hist'
         ? `<div class="card">${hist.length ? `<ul class="list small">${hist.map(h => `<li><div style="flex:1"><b>${esc(h.detail || '')}</b><div class="dim">${IMF.dateTH(h.created_at)}</div></div><b style="color:var(--bad)">${h.delta}</b></li>`).join('')}</ul>` : '<div class="dim center">ยังไม่มี</div>'}</div>`
         : !shown.length ? '<div class="card center dim">ยังไม่มี</div>'
-        : eng.length && cen.length ? `<div class="rwh">เฉพาะวิศวะ</div>${grid(eng)}<div class="rwh">ส่วนกลาง</div>${grid(cen)}`
-        : grid(shown)}
+        : `${eng.length || R.can_unlock ? `<div class="rwh"><span class="engb3">ENG</span>Exclusive วิศวะ</div>
+            ${R.can_unlock ? `<div class="unlock">${icon('lock', 22, 2)}<span>แลกได้เฉพาะนิสิตวิศวะ และคนที่ได้รับเชิญ</span><button class="btn red small" id="unlock">กรอกโค้ด</button></div>` : ''}
+            ${eng.length ? grid(eng) : ''}` : ''}
+          ${cen.length ? `${eng.length || R.can_unlock ? '<div class="rwh">ทั่วไป</div>' : ''}${grid(cen)}` : ''}`}
       </div>`;
   }
   start();
